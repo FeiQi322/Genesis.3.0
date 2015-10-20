@@ -1,0 +1,81 @@
+GENESIS version 3.0 notes.     5/01/06.
+=======================================
+
+Make files:
+===========
+
+- Make/make* are make files for various machines. Most are for Linux 
+  using the Intel Fortran compiler (ifort, with real*8 and integer*4):
+  makegenlinux_lion,iguana are Sun/Opteron machines. 
+  makegenlinux_luna is an SGI/Xeon machine.
+  makegencray is for the old ESSC Cray (real*8, integer*8).
+
+Physics changes:
+================
+
+- Solar and IR radiation code has been replaced by CCM3 radiation 
+  (adapted from RegCM3 code).
+
+- Puddles (aka ponding) has been removed from the LSX soil water treatment.
+
+- A look-up table is used for all water SVP vs. temperature functions (as 
+  always used in the AGCM. In v2 LSX, a set of statement functions was used,
+  inaccurate at very low temperatures relevant only to Snowball Earth).
+
+- Make sure QFACTOR=1 to get the default slab ocean heat diffusive transport
+  in v3. The diffusivity value in the code has been changed (it was already 
+  changed in v2.3) so that QFACTOR=1 corresponds to QFACTOR=2 in v2.2 and 
+  prior versions.
+
+Namelist, history, run script changes:
+======================================
+
+- Data input files no longer need to be copied to the local directory.
+  Their full path/file names are now given in Namelist (see supplied debpres
+  file). However, if you are updating old v2 deb files and, for convenience,
+  keep the old v2 "cp..." section that copies them to standard local names, 
+  rather than creating new Namelist settings as above, that will still work 
+  in v3 (since the default v3 data path/file names are the old v2 standard 
+  local names).
+
+- There are a few minor differences in history field names from version 2: 
+  * FRSAC is a new v3 field (clear sky absorbed at surface,= old FRSAVC+FRSANC).
+    The old v2 FRSAVC and FRSANC must be removed.
+  * Similary, the old FRSIVC and FRSINC must be removed (and there is no FRSIC).
+  * PRESCSUV (prescribed surface winds for dynamic sea ice) is no longer 
+    an option for v3, and must be removed.
+
+- There are different Namelist names (units really) for greenhouse trace gas 
+  concentrations, as in the supplied debpres file and below. 
+  These (modern) values are the defaults. 
+
+  SOLFAC  = 1.
+  SOLPAR  = 1367.     ;
+  CO2PPV  = 355.e-6   ; IPCC 1991-1995
+  CH4PPV  = 1.714e-6  ; IPCC 1991-1995
+  N2OPPV  = 0.311e-6  ; IPCC 1991-1995
+  F11PPV  = 0.280e-9  ; IPCC 1991-1995 (?)
+  F12PPV  = 0.503e-9  ; IPCC 1991-1995 (?)
+
+- Almost all non-normal terminations of the GENESIS executable (due to 
+  detectable errors such as invalid namelist input, or to machine FPEs,etc),
+  now return a non-zero status code, which is used to terminate the run in 
+  runpres. So there is no spurious looping and annoying file generation 
+  through all the remaining years. 
+
+- In directory Runpres, files runpres, debpres and year_file_pres are 
+  provided as an example for a modern simulation.  Note that:
+  * Setting of NSREST to 0 or 1 is automated in debpres, depending on 
+    the year (see the script in debpres).
+  * In debpres, you need to set host, pathnames, parallelization variables,
+    appropriately for your machine (probably keep using hostsys = linux
+    if your machine is Linux). 
+  * To change the experiment name from "pres" (= history file prefix),
+    change the line "set exp = pres" in both runpres and debpres.
+
+- For Linux machines, Intel Fortran has a feature that allows the reading 
+  of Cray binary files. This is utilized in Genesis v3, so that v2 restart 
+  files originally made on the Cray (or on the same machine as currently used)
+  can be used transparently to start v3 runs.
+
+===

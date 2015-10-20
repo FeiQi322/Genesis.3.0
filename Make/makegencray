@@ -1,0 +1,137 @@
+#------------------------------------------------------
+# Makefile for compiling and linking genesis3.0 on Cray
+#------------------------------------------------------
+
+SHELL = /bin/sh
+.SUFFIXES: .F .o
+#.SILENT:
+
+#D = /iguana/s1/pollard/Genesis.3.0
+#D = /home2/dxp21/Genesis.3.0
+ D = .
+
+#N = /usr/local/include
+#N = /usr/global/netcdf-3.5.1/include
+#N  = /iguana/s0/install/netcdf/netcdf-3.6.0-p1/src
+#N  = /iguana/s0/install/netcdf/netcdf-3.6.0-p1/src
+#NI = /iguana/s0/install/netcdf/netcdf_with_ifort/netcdf-3.6.0-p1/src/fortran
+#NA = /iguana/s0/install/netcdf/netcdf_with_ifort_2/netcdf-3.6.0-p1/lib
+ NI = /usr/local/include
+ NA = /usr/local/lib
+
+INCAGCM = $(D)/Agcm/*.h
+INCLSX = $(D)/Lsx/*.h
+INCEVE = $(D)/Eve/src3/*.h
+
+#VPATH = .:$(D)/Agcm:$(D)/Lsx:$(D)/Eve/src3:$(D)/Agcm/Inline
+#IPATH = -I. -I$(D)/Agcm -I$(D)/Lsx -I$(D)/Eve/src3 -I$(NI)
+VPATH = .:$(D)/Agcm:$(D)/Lsx:$(D)/Eve/src3:$(D)/Agcm/Inline
+IPATH = -I. -I$(D)/Agcm -I$(D)/Lsx -I$(D)/Eve/src3 -I$(NI)
+#-----------------------------------------------------------------------
+
+#DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dcray       -Dtablesvp
+#DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dcray -Domp -Dtablesvp 
+#DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dcray -Domp -Dtablesvp 
+ DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dcray       -Dtablesvp  -DNETCDF
+#DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dcray -Domp -Dtablesvp  -DNETCDF
+#DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dcray -Domp -Dtablesvp -Disotrac -DNETCDF
+
+#DEBUG = 
+#DEBUG = -g
+#DEBUG = -G 2
+ DEBUG = -g -Rabc 
+ DEBUGC = -g
+
+#-----------------------------------------------------------------------
+
+genexe.exe: \
+	    genctl.o    cloud.o   convec.o  \
+	    filio.o    hisres.o   init.o    \
+	    radctl.o     radsolar.o    radir.o  \
+	    slth.o   spect.o    util.o   vdif.o \
+	    budlsx.o    inisurf.o   radlsx.o    soil.o      utilsx.o \
+	    lsx.o       sheet.o     surfctl.o   vegdat.o histlsx.o \
+	    ibis.o      ocean.o     snow.o      turlsx.o \
+	    dice.o \
+	    canopy.o gv.o inertial.o irf.o lais.o \
+	    leaf.o leaff.o rcd.o rwlf.o scf.o \
+	    inline.o   convert.o 
+	echo '** Linking genexe'
+
+	segldr -o genexe -f indef -D 'PRESET=INDEF;USX=ERROR' \
+	    -L /lib,/usr/lib,/usr/local/lib                   \
+	    -l  ecmfft,netcdf,ncaro                     \
+	    -D 'SET=$$WBUFLN:4100;COMMONS=$$WFDCOM:4109'      \
+	    -D 'SET=$$RBUFLN:4100;COMMONS=$$RFDCOM:4109'      \
+	    genctl.o    cloud.o   convec.o  \
+	    filio.o    hisres.o   init.o    \
+	    radctl.o     radsolar.o    radir.o  \
+	    slth.o   spect.o    util.o   vdif.o \
+	    budlsx.o    inisurf.o   radlsx.o    soil.o      utilsx.o \
+	    lsx.o       sheet.o     surfctl.o   vegdat.o histlsx.o \
+	    ibis.o      ocean.o     snow.o      turlsx.o \
+	    dice.o \
+	    canopy.o gv.o inertial.o irf.o lais.o \
+	    leaf.o leaff.o rcd.o rwlf.o scf.o \
+	    inline.o   convert.o 
+
+#-----------------------------------------------------------------------
+
+genctl.o: genctl.F   $(INCAGCM)
+cloud.o:  cloud.F    $(INCAGCM)
+convec.o: convec.F   $(INCAGCM)
+filio.o:  filio.F    $(INCAGCM)
+hisres.o: hisres.F   $(INCAGCM)
+init.o:   init.F     $(INCAGCM)
+radctl.o: radctl.F   $(INCAGCM)
+radsolar.o: radsolar.F  $(INCAGCM)
+radir.o: radir.F   $(INCAGCM)
+slth.o:   slth.F     $(INCAGCM)
+spect.o:  spect.F    $(INCAGCM)
+util.o:   util.F     $(INCAGCM)
+vdif.o:   vdif.F     $(INCAGCM)
+
+dice.o:    dice.F    $(INCLSX)
+budlsx.o:  budlsx.F  $(INCLSX)
+histlsx.o: histlsx.F $(INCLSX)
+inisurf.o: inisurf.F $(INCLSX)
+radlsx.o:  radlsx.F  $(INCLSX)
+soil.o:    soil.F    $(INCLSX)
+utilsx.o:  utilsx.F  $(INCLSX)
+lsx.o:     lsx.F     $(INCLSX)
+sheet.o:   sheet.F   $(INCLSX)
+surfctl.o: surfctl.F $(INCLSX)
+vegdat.o:  vegdat.F  $(INCLSX)
+ibis.o:    ibis.F    $(INCLSX)
+ocean.o:   ocean.F   $(INCLSX)
+snow.o:    snow.F    $(INCLSX)
+turlsx.o:  turlsx.F  $(INCLSX)
+
+canopy.o:   canopy.c   $(INCEVE)
+gv.o:       gv.c       $(INCEVE)
+inertial.o: inertial.c $(INCEVE)
+irf.o:      irf.c      $(INCEVE)
+lais.o:     lais.c     $(INCEVE)
+leaf.o:     leaf.c     $(INCEVE)
+leaff.o:    leaff.c    $(INCEVE)
+rcd.o:      rcd.c      $(INCEVE)
+rwlf.o:     rwlf.c     $(INCEVE)
+scf.o:      scf.c      $(INCEVE)
+
+inline.o: inline.F 
+convert.o: convert.c 
+
+
+#-----------------------------------------------------------------------
+
+.F.o:
+	echo '** Compiling $*.F'
+	f90 -e i -Ooverindex $(DEBUG) $(DFLAGS) $(IPATH) -c $<
+
+#-----------------------------------------------------------------------
+
+.c.o:
+	echo '** Compiling $*.c'
+	cc $(DEBUGC) -c $<
+
+#-----------------------------------------------------------------------

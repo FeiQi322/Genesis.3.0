@@ -1,0 +1,144 @@
+ $INPUT
+
+ 
+  RUNTITLE = 'v3.0 pres'
+  NSREST   = 1
+
+ 
+ 
+
+  TEQCOLD = 285.
+  TPOCOLD = 275.
+
+  BASEDATE = '2000/01/01'
+  ENDDATE  = '2001/12/31'
+
+  MSNAMIN  = 'nsrepres'
+  MSNAMHIS= 'PRES001','PRES002','PRES003','PRES004','PRES005',
+            'PRES006','PRES007','PRES008','PRES009','PRES010',
+            'PRES011','PRES012','PRES013','PRES014','PRES015',
+            'PRES016','PRES017','PRES018','PRES019','PRES020',
+            'PRES021','PRES022','PRES023','PRES024','PRES025',
+            'PRES026','PRES027','PRES028','PRES029','PRES030',
+            'PRES031','PRES032','PRES033','PRES034','PRES035',
+            'PRES036','PRES037','PRES038','PRES039','PRES040',
+            'PRES041','PRES042','PRES043','PRES044','PRES045',
+            'PRES046','PRES047','PRES048','PRES049','PRES050'
+            'PRES051','PRES052','PRES053','PRES054','PRES055',
+            'PRES056','PRES057','PRES058','PRES059','PRES060'
+            'PRES061','PRES062','PRES063','PRES064','PRES065',
+            'PRES066','PRES067','PRES068','PRES069','PRES070'
+            'PRES071','PRES072','PRES073','PRES074','PRES075',
+            'PRES076','PRES077','PRES078','PRES079','PRES080'
+            'PRES081','PRES082','PRES083','PRES084','PRES085',
+            'PRES086','PRES087','PRES088','PRES089','PRES090'
+            'PRES091','PRES092','PRES093','PRES094','PRES095',
+            'PRES096','PRES097','PRES098','PRES099','PRES100'
+  MSNAMRE2 = 'nsrepres'
+
+  MSPATH   = './' 
+  PASSWD   = 'paleo1'
+  RETPD    = 4000
+
+  NSAVE    = 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
+  NNEXF    = 365
+
+  NHISI    = 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
+  NDHIS    = 0
+
+  CUSHNAM  = 'ORO*    ',  'TOPOG*  ',  'TOPOGUN*',
+             'PS      ',  'PSLEV   ',  'Z200    ',  'Z500    ',
+             'T       ',  'Q       ',  'U       ',  'V       ',
+             'OMEGA   ',  'CLOUD   ',
+             'TOTCLD  ',  'TOTCLDC ',  'TOTCLDS ',  'TOTCLDA ',
+             'HFLR    ',  'QFLR    ',  'PRECL   ',  'PRECC   ',
+             'SOLIN   ',  'SABTP   ',  'SABAT   ',  'FIRTP   ',
+             'FRSA    ',  'FRLA    ',  'FRLD    ',  'SRAD    ',
+             'FRSAV   ',  'FRSAN   ',  'FRSIV   ',  'FRSIN   ',
+             'FRSAC   ',
+             'CLRST   ',  'CLRLT   ',  'CLRSS   ',  'CLRLS   ',
+             'PBL03   ',  'PBL15   ',  'RHUMID  ',  'SURWIND ',
+             'LWC     ',  'TOTLWC  ',  'RAINF   ',  'SNOWF   '
+
+  OCEANTYPE = 1
+  DYNAMICE = .T.    PRESCOUV =.T.
+
+  SHOWMAPS  = .F.   BUDFREQ  = 365.
+  LONOLSX   =  1    LATOLSX  = 89     TIMOLSX  = 0.
+
+  VEGTYPE   = 0
+
+  HISNET = .T.
+
+  DELEVTYPE = 1 
+
+
+
+
+
+
+ 
+ 
+  TOPOG_FILE     ='/gpfs/home/rfr5151/work/Datafiles/V2/data_top_T31'     
+  OZONE_FILE     ='/gpfs/home/rfr5151/work/Datafiles/V2/data_ozone_T31'   
+  GWD_FILE       ='/gpfs/home/rfr5151/work/Datafiles/V2/data_gwd_T31'     
+  TOPOG2_FILE    ='/gpfs/home/rfr5151/work/Datafiles/V2/data_top_2X2'     
+  VEG_FILE       ='/gpfs/home/rfr5151/work/Datafiles/V2/data_biome_2X2'   
+ 
+  SURFTYPE_FILE  ='/gpfs/home/rfr5151/work/Datafiles/V2/data_sur_2X2'     
+  FWATER_FILE    ='/gpfs/home/rfr5151/work/Datafiles/V2/data_fwater_2X2'  
+  OCEANUV_FILE   ='/gpfs/home/rfr5151/work/Datafiles/V2/data_ouv_2X2'     
+  SST_FILE       ='/gpfs/home/rfr5151/work/Datafiles/V2/data_sst_2X2'     
+  ISOT_O_FILE    ='/gpfs/home/rfr5151/work/Datafiles/Isot/data_oceanisot_2X2' 
+
+  SOILTEX01_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit01_2X2'  
+  SOILTEX02_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit02_2X2'  
+  SOILTEX03_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit03_2X2'  
+  SOILTEX04_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit04_2X2'  
+  SOILTEX05_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit05_2X2'  
+  SOILTEX06_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit06_2X2'  
+ 
+
+
+
+
+
+
+
+ $END
+
+ 
+
+ $RADOTG
+
+  SOLFAC  = 1.
+  SOLPAR  = 1367.     
+  CO2PPV  = 288.e-6   
+  CH4PPV  = 0.800e-6  
+  N2OPPV  = 0.288e-6  
+  F11PPV  = 0.000e-9  
+  F12PPV  = 0.000e-9  
+
+ $END
+
+ 
+
+ $INPUTLSX
+
+  CUSHNAM_A = 'LMASK*  ',  'HOCEAN* ',  'FWATER* ',
+              'TS      ',  'TA      ',  'TS2     ',  'TS2_M   ',
+              'WET1    ',  'WET2    ',  'WET3    ',
+              'WET4    ',  'WET5    ',  'WET6    ',
+              'WICE1   ',  'WICE2   ',  'WICE3   ',
+              'WICE4   ',  'WICE5   ',  'WICE6   ',
+              'SNOWH   ',  'SNOWF   ',  'ICEH    ',  'ICEF    ',
+              'RUNOFF  ',  'DRAIN   ',  'TRANSP  ',  'AVAP    ',
+              'TAUX    ',  'TAUY    ',  'QFLUX   ',
+              'PRECIP  ',  'RAINFA  ',  'SNOWFA  ',
+              'LAIT*   ',  'SAIT*   ',
+              'INTVAP  ',  'SURVAP  ',  'FOGRAT  ',
+              'UICE    ',  'VICE    ',  'BRINE   ',
+              'TOCEAN  ',  'SOCEAN  ',  'UOCEAN  ',  'VOCEAN  ',  
+              'HFLXOCN ',  'PMEOCN  '
+
+ $END

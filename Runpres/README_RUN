@@ -1,0 +1,97 @@
+README_RUN
+----------
+
+The Runpres directory contains the files needed to run the GENESIS v3 GCM
+for a sample multi-year modern simulation.
+
+The Unix script file "runpres" runs the GCM through a  multi-year
+simulation. runpres contains a while loop over the years, looping from
+the first year (year_base) to the last year (year_last). Inside this loop, 
+another script "debpres" is called that actually runs the GCM through one
+calendar year (January 1st to December 31st).
+
+[The debpres script could easily be adapted to run the GCM continuously through
+multiple years, but this double-script one-year-at-a-time method has been found 
+to be convenient for several reasons, such as transparent recovery after 
+system crashes, and calling separate post-processing programs at the end of 
+each year].
+
+In runpres:
+----------
+The unix variable "exp" (here, pres) is a label identifying the type of 
+experiment, and is also assumed to be the suffix in the debpres filename.
+
+To set up for a different experiment, called "lgm" say, just copy runpres and 
+debpres to a new run directory, rename them to "runlgm" and "deblgm", and edit
+the lines setting exp ("set exp = lgm") near the start of each file. 
+Then, of course, edit deblgm to set up the input files and parameters for 
+the new run.
+
+A small disk file called "year_file_pres" is used to store the current 
+year number of the run (usually 2001, 2002, 2003, etc). These date have
+no significance for the model physics, they are just convenient labels.  
+
+To initiate a new run, type "runpres >&! outfile &". If the file 
+"year_file_pres" does not exist, it is created containing the first year 
+of the run, set by the variable "year_base" in runpres, (usually 2001).
+The year_file_pres is overwritten with the current year label at the start 
+of each year-loop in runpres. The current year label, (and the initial year 
+of the entire run), are passed as Unix arguments from runpres to debpres. 
+
+If a system crash or some other program failure occurs, then on restart 
+(i.e., when "runpres..." is typed in again), the year_file_pres file is 
+read by runpres to determine the first year of the restart. 
+
+*** If a system crash occurs in the middle of a multi-year run, check that
+*** the year_file_pres file exists and contains the year at which the run
+*** should resume. If year_file_pres does not exist for some reason, 
+*** then on restarting, the run will begin again from the first year (2001), 
+*** duplicating the previous years' integrations and overwriting the results.
+
+In debpres:
+----------
+debpres contains several distinct sections:
+(1) Sets various basic parameters (model resolution, paths to files)
+(2) Sets "nsrest", a parameter determing whether a cold start,
+    initial start, or restart (se User's Guide).
+(3) Writes (cat...) the Namelist file (interm) that the GCM reads when it 
+    starts running. It contain various model parameters controlling the run, 
+    divided into 3 Namelist groups:
+    INPUT:    overall run, AGCM history fields, AGCM physical parameters
+    RADOTG:   solar constant, gas concentrations, for solar and IR radiation
+    INPUTLSX: surface module (LSX) history files, LSX physical parameters  
+(4) Stream editing of interm (transparent to user)     
+(5) Setting of Unix parameters for run-time multiprocessing, stack space
+(6) Command to run the executable GCM file ($genexe)
+(7) Post-processing at the end of each year (rename standard output file,
+    call convnetonly_v3 to generate table of global means of selected variables)
+
+File-naming Convention
+----------------------
+Note that in the above run setup, a file-naming convention is followed 
+based on the experiment label. This does not have to be followed, but 
+is convenient because it minimizes changes to the run and deb scripts 
+needed to set up new experiments. 
+
+All experiment labels are lower case (here "pres", in general ... say). 
+The run directory is called Run..., and the run and deb scripts are 
+called run... and deb... . Near the top of each of these scripts, a 
+Unix variable "exp" is set to this label ("set exp = ...").  
+In the deb... file, history file names are set with prefixes as 
+upper-cased $exp, followed by year numbers 001, 002, etc.
+
+To set up a new experiment following this convention, you need to:
+(1) Create a new directory called Run... (where ... is your new lowercase label)
+(2) Copy in similar run and deb files from a previous experiment.
+(3) Rename them to run... and deb...
+(4) Edit each of these files so that the line "set exp = ..." near the start
+    sets the Unix variable exp to your chosen experiment label.
+(5) Create a file called year_file_... containing the one line "2001".
+(6) Edit deb...p appropriately to set the new physical parameters for the run.
+(7) Copy in an appropriate first-year restart file from a previous run,
+    naming it "nsre...".
+
+
+
+
+David Pollard (pollard@essc.psu.edu)

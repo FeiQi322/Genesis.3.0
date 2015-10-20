@@ -1,0 +1,929 @@
+c -- $Id: cloud.F,v 1.2 2001/07/03 21:29:17 bill Exp $
+c -- $Source: /usr/local/portgcm/src/cvsroot/genesis.2.2/Agcm/cloud.F,v $
+c -- $Name:  $
+
+c
+c ***************************** cldcmp ********************************
+c
+      subroutine cldcmp (yt, yq, ylwc_c, ylwc_a, ylwc_s,
+     *                   totcld, totcldc, totclda, totclds, totlwc,
+     *                   wplume0, wplume1, ypm, ypthic, ycld, yclwp,
+     *                   yrelhum, j)
+c----------------------------------------------------------------------
+c
+cl            Compute combined 3-D cloud fraction (ycld)
+cl            and within-cloud layer liquid water path (yclwp, kg/m2).
+cl            Do one latitude strip at a time (j=latitude index)
+c
+C----------------------------------------------------------------------
+#include <PARAMS.h>
+C --------------------------------------------------------------------
+#include <COMCON.h>
+C --------------------------------------------------------------------
+#include <COMFLG.h>
+C --------------------------------------------------------------------
+#include <COMHIX.h>
+C --------------------------------------------------------------------
+#include <COMIMP.h>
+C --------------------------------------------------------------------
+#include <COMLUN.h>
+C --------------------------------------------------------------------
+#include <COMMAP.h>
+C --------------------------------------------------------------------
+#include <COMMP2.h>
+C --------------------------------------------------------------------
+#include <COMTIM.h>
+C --------------------------------------------------------------------
+      dimension
+     *  yt(nlon,norec,nlev),      yq(nlon,norec,nlev),
+     *  ylwc_c(nlon,norec,nlev),  ylwc_a(nlon,norec,nlev),
+     *  ylwc_s(nlon,norec,nlev),
+     *  totcld(nlon,norec),       totcldc(nlon,norec),
+     *  totclda(nlon,norec),      totclds(nlon,norec),
+     *  totlwc(nlon,norec),
+     *  wplume0(norec,nlev),      wplume1(norec,nlev),
+     *  ypm(nlon,norec,nlev),     ypthic(nlon,norec,nlev),
+     *  ycld(nlon,norec,nlev),    yclwp(nlon,norec,nlev),
+     *  yrelhum(nlon,norec,nlev)
+c --------------------------------------------------------------------
+      dimension
+     *  cloud(nlon,nlev),      cloudc(nlon,nlev),
+     *  clouda(nlon,nlev),     clouds(nlon,nlev),
+     *  zsvp(nlon),            zsvq(nlon),
+     *  zrh(nlon,nlev),        zlwc(nlon,nlev),
+     *  cloudcr(nlon,nlev),    cloudsr(nlon,nlev),
+     *  kkc(nlon,nlev),        kks(nlon,nlev),
+     *  zrho(nlon),            
+     *  zclw_c(nlon),          zclw_a(nlon),       zclw_s(nlon)
+
+c------------------------------------------------------------------
+c     Set cloud fractions based on cloud liquid water content, and
+c     within-cloud layer liquid water path yclwp (global array, for
+c     radiation code (subr optdep)).
+c------------------------------------------------------------------
+ 
+      do 100 k=1,nlev
+ 
+c       calculate saturation svp for diagnostic rh calculation below:
+        call estabv (zsvp, zsvq, yt(1,j,k), ypm(1,j,k), nlon)
+
+c       calculate air density:
+        do i=1,nlon
+          zrho(i) = ypm(i,j,k) / (rair*(1.+zvir*yq(i,j,k))*yt(i,j,k))
+        enddo
+
+c       calculate cloud water content for each cloud type:
+        call clwcalc (zclw_c, yt(1,j,k), zrho, 1)
+        call clwcalc (zclw_a, yt(1,j,k), zrho, 2)
+        call clwcalc (zclw_s, yt(1,j,k), zrho, 3)
+ 
+        do 102 i=1,nlon
+ 
+c         Zero tiny amounts of clouds for niceity and perhaps numerical
+c         safety (ignore tiny conservation errors)
+          ylwc_c(i,j,k)=cvmgt(0.,ylwc_c(i,j,k), ylwc_c(i,j,k).lt.1.e-10)
+          ylwc_a(i,j,k)=cvmgt(0.,ylwc_a(i,j,k), ylwc_a(i,j,k).lt.1.e-10)
+          ylwc_s(i,j,k)=cvmgt(0.,ylwc_s(i,j,k), ylwc_s(i,j,k).lt.1.e-10)
+ 
+          cloudc(i,k) = min (1., max (0., ylwc_c(i,j,k)/zclw_c(i) ))
+          clouda(i,k) = min (1., max (0., ylwc_a(i,j,k)/zclw_a(i) ))
+          clouds(i,k) = min (1., max (0., ylwc_s(i,j,k)/zclw_s(i) ))
+ 
+          yclwp(i,j,k)= (ypthic(i,j,k)/gravit)
+     *                * (   cloudc(i,k)*zclw_c(i)
+     *                    + clouda(i,k)*zclw_a(i)
+     *                    + clouds(i,k)*zclw_s(i) )
+     *                / max(cloudc(i,k)+clouda(i,k)+clouds(i,k),1.e-20)
+
+c         calculate relative humidity (just for diagnostic and history)
+          zmr = yq(i,j,k) / max (1.-yq(i,j,k),.001)
+          zrh(i,k) = (zmr/(.622+zmr)) * (ypm(i,j,k)/zsvp(i))
+          zrh(i,k) = max (0., min (1., zrh(i,k)))
+          yrelhum(i,j,k) = zrh(i,k)
+  102   continue
+ 
+  100 continue
+ 
+c--------------------------------------------------------------
+c     Adjust final cloud fractions for random/stacked overlaps,
+c     and set ycld (passed global array, for radiation)
+c--------------------------------------------------------------
+ 
+c        Set numbers of adjacent cloud layers (kkc for convective,
+c        kks for stratus), interrupted by any cloud-free (< .01) layers,
+c        scanning top to bottom
+ 
+      do 400 i=1,nlon
+       kkc(i,1) = 0
+c      kks(i,1) = 0
+  400 continue
+ 
+      do 410 k=1,nlev
+        km1 = max (k-1,1)
+        do 412 i=1,nlon
+          if (cloudc(i,k).ge.0.01) then
+            kkc(i,k) = kkc(i,km1) + 1
+          else
+            kkc(i,k) = 0
+          endif
+ 
+c         if (clouds(i,k).ge.0.01) then
+c           kks(i,k) = kks(i,km1) + 1
+c         else
+c           kks(i,k) = 0
+c         endif
+  412   continue
+  410 continue
+ 
+c        Set overlap-adjusted amounts cloudcr,cloudsr, scanning
+c        bottom to top to catch appropriate kkc,kks values
+ 
+      do 420 k=nlev,1,-1
+        kp1 = min (k+1,nlev)
+        do 422 i=1,nlon
+ 
+          cloudcr(i,k) = cloudc(i,k)
+          if (kkc(i,k).gt.0) then
+c           kkc(i,k) = min (3, max (kkc(i,k), kkc(i,kp1)))
+c           kkc(i,k) = min (4, max (kkc(i,k), kkc(i,kp1)))
+            kkc(i,k) =         max (kkc(i,k), kkc(i,kp1))
+            if (kkc(i,k).ge.2) then
+              cloudcr(i,k) = 1. - (1.-cloudc(i,k))**(1./kkc(i,k))
+            endif
+          endif
+ 
+          cloudsr(i,k) = clouds(i,k)
+c         if (kks(i,k).gt.0) then
+c           kks(i,k) = min (2, max (kks(i,k), kks(i,k+1)))
+c           if (kks(i,k).ge.2) then
+c             cloudsr(i,k) = 1. - (1.-clouds(i,k))**(1./kks(i,k))
+c           endif
+c         endif
+ 
+  422   continue
+  420 continue
+ 
+c        Set final combined 3-D cloud fraction
+ 
+      do 430 k=1,nlev
+        do 432 i=1,nlon
+          zc = max (cloudcr(i,k), clouda(i,k))        ! old: v2.3, v3
+c         zc = min (cloudcr(i,k) + clouda(i,k), 1.)   ! alternate
+          zl = cloudsr(i,k)
+          cloud(i,k) = min (1., zc + zl - zc*zl)      ! full intermixing
+c         cloud(i,k) = min (1., zc + zl)              ! no   intermixing
+ 
+c         To reduce cpu in ir rad code, set rad's cloud to 0 if < .01
+          cloud(i,k) = cvmgt (cloud(i,k), 0., cloud(i,k).ge.0.01)
+ 
+          ycld(i,j,k) = cloud(i,k)
+  432   continue
+  430 continue
+ 
+c        Compute individual cloudiness amounts (for diagnostics and
+c        history only...totcldc/a/s not consistent with calculation of
+c        ycld above) and vertically integrated cloud liquid water
+ 
+      do 500 i=1,nlon
+        totcld(i,j)  = 1.
+        totcldc(i,j) = 1.
+        totclda(i,j) = 1.
+        totclds(i,j) = 1.
+        totlwc(i,j)  = 0.
+  500 continue
+ 
+      do 510 k=1,nlev
+        do 512 i=1,nlon
+          totcld(i,j)  = totcld(i,j) *(1.-cloud(i,k))
+          totcldc(i,j) = totcldc(i,j)*(1.-cloudcr(i,k))
+          totclda(i,j) = totclda(i,j)*(1.-clouda(i,k))
+          totclds(i,j) = totclds(i,j)*(1.-cloudsr(i,k))
+          zlwc(i,k)    = ylwc_c(i,j,k) + ylwc_a(i,j,k) + ylwc_s(i,j,k)
+          totlwc(i,j)  = totlwc(i,j) + zlwc(i,k)*(ypthic(i,j,k)/gravit)
+  512   continue
+  510 continue
+ 
+      do 520 i=1,nlon
+        totcld(i,j)  = 1. - totcld(i,j)
+        totcldc(i,j) = 1. - totcldc(i,j)
+        totclda(i,j) = 1. - totclda(i,j)
+        totclds(i,j) = 1. - totclds(i,j)
+  520 continue
+ 
+c        Accumulate and print diagnostic zonal means, vert-integs
+c        (Don't call first timestep since wplume* not set until convad)
+ 
+      if (nstep.gt.nrstrt)
+     *  call clddiag  (cloud,  cloudc,  clouda,  clouds,  zlwc,   zrh,
+     *                 yt,      yq,     ypthic,  wplume0, wplume1,
+     *                 totcld, totcldc, totclda, totclds, totlwc, j)
+ 
+      return
+      end
+c
+c **************************** clddiag *********************************
+c
+      subroutine clddiag (cloud,  cloudc,  clouda,  clouds, tlwc,relhum,
+     *                    yt,     yq,      ypthic,  wplume0, wplume1,
+     *                    totcld, totcldc, totclda, totclds, totlwc, jj)
+ 
+c     Accumulates and prints zonal-mean and/or vertically-integrated
+c     cloud amounts. Nb: For vertically-integrated cloudiness, must
+c     do vertical (random overlap) integrals before do time averaging,
+c     otherwise lose time-correlations in vertical distribution.
+c     So accumulate totcld* here (instantaneous cloudiness, already
+c     computed in cldcmp), and don't compute from accumulated zon*.
+ 
+c     First part (before "entry clddiago") is for one latitude strip
+c     at a time.
+ 
+c cloud   = total         cloud fraction (lon-lev slice)
+c cloudc  = convective    cloud fraction (lon-lev slice)
+c clouda  = anvil-cirrus  cloud fraction (lon-lev slice)
+c clouds  = stratus       cloud fraction (lon-lev slice)
+c tlwc    = total liquid water content   (lon-lev slice)
+c relhum  = relative humidity            (lon-lev slice)
+c yt      = air temperature              (global 3-d)
+c yq      = specific humidity            (global 3-d)
+c ypthic  = layer pressure thickness     (global 3-d)
+c wplume0 = "pbl" plume vertical velocity(zonal mean)
+c wplume1 = "free"plume vertical velocity(zonal mean)
+c totcld  = vert-int. total        cloudiness (global lon,lat)
+c totcldc = vert-int. convective   cloudiness (global lon,lat)
+c totclda = vert-int. anvil-cirrus cloudiness (global lon,lat)
+c totclds = vert-int. stratus      cloudiness (global lon,lat)
+c totlwc  = vert-int. cloud liquid water (kg/m2)(global lon,lat)
+c jj      = latitude index
+ 
+c ---------------------------------------------------------------------
+#include <PARAMS.h>
+c ---------------------------------------------------------------------
+#include <COMCON.h>
+c ---------------------------------------------------------------------
+#include <COMFLG.h>
+c ---------------------------------------------------------------------
+#include <COMIMP.h>
+c ---------------------------------------------------------------------
+#include <COMINI.h>
+c ---------------------------------------------------------------------
+#include <COML10.h>
+c ---------------------------------------------------------------------
+#include <COMMAP.h>
+c ---------------------------------------------------------------------
+#include <COMMP2.h>
+c ---------------------------------------------------------------------
+#include <COMTIM.h>
+c ---------------------------------------------------------------------
+      dimension
+     *  cloud(nlon,nlev),       cloudc(nlon,nlev),
+     *  clouda(nlon,nlev),      clouds(nlon,nlev),
+     *  tlwc(nlon,nlev),        relhum(nlon,nlev),
+     *  yt(nlon,norec,nlev),    yq(nlon,norec,nlev),
+     *  ypthic(nlon,norec,nlev),
+     *  wplume0(norec,nlev),
+     *  wplume1(norec,nlev),
+     *  totcld(nlon,norec),     totcldc(nlon,norec),
+     *  totclda(nlon,norec),    totclds(nlon,norec), totlwc(nlon,norec)
+c ---------------------------------------------------------------------
+      dimension
+     *  zont(norec,nlev),      zonc(norec,nlev),
+     *  zona(norec,nlev),      zons(norec,nlev),
+     *  zonl(norec,nlev),      zonr(norec,nlev),
+     *  zone(norec,nlev),      zonq(norec,nlev),
+     *  zonv0(norec,nlev),     zonv1(norec,nlev),
+ 
+     *  tott(nlon,norec),      totc(nlon,norec),
+     *  tota(nlon,norec),      tots(nlon,norec),      totsb(nlon,norec),
+     *  totw(nlon,norec),
+     *  tote(nlon,norec),      totq(nlon,norec),
+ 
+     *  tzont(norec),          tzonc(norec),
+     *  tzona(norec),          tzons(norec),
+     *  tzonw(norec),          tzonwl(norec),         tzonwo(norec),
+     *  tzone(norec),          tzonq(norec),
+     *  imap(nlon,norec)
+ 
+      save zont,zonc,zona,zons,zonl,zonr,zone,zonq,zonv0,zonv1,
+     *     tott,totc,tota,tots,totw,     tote,totq,
+     *                    totsb
+ 
+      dimension zhei(nlev), zheil(nlevp)
+      character*100 ctmp
+      logical ifeom, ifpri, want_map, firstprint
+
+      save lon1, lon2, kount, firstprint, want_map, zhei, zheil
+      data lon1, lon2, kount /1, nlon, 0/
+      data firstprint, want_map /.true., .true./
+ 
+      logical first(norec)
+      save first
+      data first /norec*.true./
+ 
+      dimension ndmo(12)
+      data ndmo/31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365/
+      save ndmo
+ 
+c --------------------------------------------------------------------
+ 
+c        Initialize accumulators (first call)
+ 
+      if (first(jj)) then
+        do 10 k=1,nlev
+          zont(jj,k) = 0.
+          zonc(jj,k) = 0.
+          zona(jj,k) = 0.
+          zons(jj,k) = 0.
+          zonl(jj,k) = 0.
+          zonr(jj,k) = 0.
+          zone(jj,k) = 0.
+          zonq(jj,k) = 0.
+          zonv0(jj,k) = 0.
+          zonv1(jj,k) = 0.
+   10   continue
+        do 12 i=1,nlon
+          tott(i,jj) = 0.
+          totc(i,jj) = 0.
+          tota(i,jj) = 0.
+          tots(i,jj) = 0.
+          totsb(i,jj)= 0.
+          totw(i,jj) = 0.
+          tote(i,jj) = 0.
+          totq(i,jj) = 0.
+   12   continue
+        first(jj) = .false.
+      endif
+ 
+c        Increment accumulation counter
+ 
+      if (jj.eq.1) kount = kount + 1
+ 
+c        Accumulate zonal-means cloud fractions and relative humidity,
+c        and 2-D cloudinesses
+ 
+      do 240 k=1,nlev
+        do 242 i=lon1,lon2
+          zont(jj,k) = zont(jj,k) + cloud (i,k)
+          zonc(jj,k) = zonc(jj,k) + cloudc(i,k)
+          zona(jj,k) = zona(jj,k) + clouda(i,k)
+          zons(jj,k) = zons(jj,k) + clouds(i,k)
+          zonl(jj,k) = zonl(jj,k) + tlwc(i,k)
+          zonr(jj,k) = zonr(jj,k) + relhum(i,k)
+          zone(jj,k) = zone(jj,k) + yt(i,jj,k)
+          zonq(jj,k) = zonq(jj,k) + yq(i,jj,k)
+  242   continue
+        zonv0(jj,k) = zonv0(jj,k) + wplume0(jj,k)
+        zonv1(jj,k) = zonv1(jj,k) + wplume1(jj,k)
+  240 continue
+
+c777777:
+      if (abs(wplume0(jj,nlev)).gt.999. .or.
+     *    abs(zonv0(jj,nlev)).gt.999.*30.*48.) then
+        write (6,'(/a,2i8)') 'clddiag: nstep, jj=',nstep,jj
+        write (6,'(a,e20.8)') 'wplume0(jj,nlev)=',wplume0(jj,nlev)
+        write (6,'(a,e20.8)') 'zonv0  (jj,nlev)=',zonv0  (jj,nlev)
+        stop
+      endif
+ 
+      do 250 i=1,nlon
+        tott(i,jj) = tott(i,jj) + totcld (i,jj)
+        totc(i,jj) = totc(i,jj) + totcldc(i,jj)
+        tota(i,jj) = tota(i,jj) + totclda(i,jj)
+        tots(i,jj) = tots(i,jj) + totclds(i,jj)
+        totsb(i,jj)= totsb(i,jj)+ clouds(i,nlev)
+        totw(i,jj) = totw(i,jj) + totlwc(i,jj)
+        tote(i,jj) = tote(i,jj) + yt(i,jj,nlev)
+  250 continue
+ 
+      do 260 k=1,nlev
+      do 260 i=1,nlon
+        totq(i,jj) = totq(i,jj) + yq(i,jj,k)*ypthic(i,jj,k)/gravit
+  260 continue
+ 
+      return
+ 
+c----------------------------------------------------------------------
+c        Separate entry point for end-of-month and printout section
+c        (called after latitude loop in phys, to allow multiprocessing)
+ 
+      entry clddiago (iu)
+c----------------------------------------------------------------------
+ 
+c        Set ifeom (end-of-month flag) and ifpri (printout-time flag)
+ 
+      ifeom = .false.
+      ifpri = .false.
+      zday = istepy*dtime/86400.
+      do 295 m=1,12
+        if (abs(zday-ndmo(m))*86400. .lt. 0.5*dtime) then
+          ifeom = .true.
+          if (m.eq.1.or.m.eq.7) ifpri = .true. ! printout for Jan or Jul
+        endif
+  295 continue
+ 
+c     printout for last timestep of short (<= 1 month) runs
+      if (nstep.eq.nstop .and. (nstop-nrstrt+1)*dtime.lt.32*86400.) then
+        ifeom = .true.
+        ifpri = .true.
+      endif
+ 
+c        If end-of-month, divide accumulated quantities by accumulation
+c        counter (and zonal means by longitude dimension), and calculate
+c        zonal mean total cloud covers.
+ 
+      if (ifeom) then
+ 
+        call zero (tzont, norec)
+        call zero (tzonc, norec)
+        call zero (tzona, norec)
+        call zero (tzons, norec)
+        call zero (tzonw, norec)
+        call zero (tzonwl,norec)
+        call zero (tzonwo,norec)
+        call zero (tzone, norec)
+        call zero (tzonq, norec)
+ 
+        do 300 j=1,norec
+
+          do 302 k=1,nlev
+            zont(j,k) = zont(j,k) / (kount*(lon2-lon1+1))
+            zonc(j,k) = zonc(j,k) / (kount*(lon2-lon1+1))
+            zona(j,k) = zona(j,k) / (kount*(lon2-lon1+1))
+            zons(j,k) = zons(j,k) / (kount*(lon2-lon1+1))
+            zonl(j,k) = zonl(j,k) / (kount*(lon2-lon1+1))
+            zonr(j,k) = zonr(j,k) / (kount*(lon2-lon1+1))
+            zone(j,k) = zone(j,k) / (kount*(lon2-lon1+1))
+            zonq(j,k) = zonq(j,k) / (kount*(lon2-lon1+1))
+            zonv0(j,k)= zonv0(j,k)/  kount
+            zonv1(j,k)= zonv1(j,k)/  kount
+  302     continue
+ 
+          do 304 i=1,nlon
+            tott(i,j) = tott(i,j) / kount
+            totc(i,j) = totc(i,j) / kount
+            tota(i,j) = tota(i,j) / kount
+            tots(i,j) = tots(i,j) / kount
+            totsb(i,j)= totsb(i,j)/ kount
+            totw(i,j) = totw(i,j) / kount
+            tote(i,j) = tote(i,j) / kount
+            totq(i,j) = totq(i,j) / kount
+  304     continue
+ 
+          do 306 i=lon1,lon2
+            tzont(j) = tzont(j) + tott(i,j)/(lon2-lon1+1)
+            tzonc(j) = tzonc(j) + totc(i,j)/(lon2-lon1+1)
+            tzona(j) = tzona(j) + tota(i,j)/(lon2-lon1+1)
+            tzons(j) = tzons(j) + tots(i,j)/(lon2-lon1+1)
+            tzonw(j) = tzonw(j) + totw(i,j)/(lon2-lon1+1)
+            tzone(j) = tzone(j) + tote(i,j)/(lon2-lon1+1)
+            tzonq(j) = tzonq(j) + totq(i,j)/(lon2-lon1+1)
+  306     continue
+ 
+          kkl = 0
+          kko = 0
+          do 308 i=lon1,lon2
+            if (yoro(i,j).ge.0.5) then
+              tzonwl(j) = tzonwl(j) + totw(i,j)
+              kkl = kkl + 1
+            else
+              tzonwo(j) = tzonwo(j) + totw(i,j)
+              kko = kko + 1
+            endif
+  308     continue
+          if (kkl.gt.0) tzonwl(j) = tzonwl(j)/kkl
+          if (kko.gt.0) tzonwo(j) = tzonwo(j)/kko
+ 
+  300   continue
+ 
+      endif
+ 
+c--------------------
+c Zonal mean printout
+c--------------------
+ 
+      if (ifpri) then
+ 
+c          Calculate geometric heights for printout
+ 
+        if (firstprint) then
+          j = nint (norec*(45.+90.)/180. + 0.5)
+          zhei (nlev) = 0.
+          zheil(nlevp) = 0.
+          zsiga  = 1.
+          zsigla = 1.
+          zrhoa  = 98222. / (rair*(1.+zvir*zonq(j,nlev))*zone(j,nlev))
+          do 340 k=nlev,1,-1
+            zsigb  = sig(k)
+            zsiglb = sigkmh(k)
+            zrhob  = 98222.*zsigb / (rair*(1.+zvir*zonq(j,k))*zone(j,k))
+            zhei(k) = zhei(min(k+1,nlev))
+     *              + 98222.*(zsiga-zsigb)/(.5*(zrhoa+zrhob)*gravit)
+            zheil(k)= zheil(k+1)
+     *              + 98222.*(zsigla-zsiglb)/(zrhob*gravit)
+            zsiga  = zsigb
+            zsigla = zsiglb
+            zrhoa  = zrhob
+  340     continue
+          firstprint = .false.
+        endif
+ 
+        incz = (norec-1)/40 + 1
+        zlon1 = (lon1-1)*(360./nlon)
+        zlon2 = (lon2  )*(360./nlon)
+ 
+        write(iu,*) char(12)
+        write(iu,350) zday-kount*dtime/86400., zday
+  350   format(
+     *    //' -------------------------------------------------------'
+     *     /' Cross sections for calendar days', f9.3,' to', f9.3,' :'
+     *     /' -------------------------------------------------------')
+ 
+        write(iu,390) (nint(alatg(j)*180./3.14159), j=norec,1,-incz)
+  390   format(/6x,' latitude:',2x,40i3)
+ 
+ 
+        write(iu,400) 'total cloud cover', zlon1, zlon2
+  400   format(/' ',a,' (from',f6.1,' to',f6.1,' deg E):')
+        do 402 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                  (nint(100.*zont(j,k)),j=norec,1,-incz)
+  402   continue
+        write(iu,406) (nint(100.*tzont(j)),j=norec,1,-incz)
+ 
+        zglobc = 0.
+        do 408 j=1,norec
+        do 408 i=1,nlon
+          zglobc = zglobc + tott(i,j)*w(j)
+  408   continue
+        write(iu,409)'    globe:', 100.*zglobc/(2.*nlon)
+  404   format(i2,f7.3,f7.2,2x,40i3)
+  406   format(/18x,40i3)
+  409   format(6x,a10,2x,f6.2)
+ 
+ 
+        write(iu,400) 'convective cloud cover', zlon1, zlon2
+        do 412 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                  (nint(100.*zonc(j,k)),j=norec,1,-incz)
+  412   continue
+        write(iu,406) (nint(100.*tzonc(j)),j=norec,1,-incz)
+ 
+c------
+        write(iu,*) char(12)
+        write(iu,390) (nint(alatg(j)*180./3.14159), j=norec,1,-incz)
+c------
+ 
+        write(iu,400) 'anvil cirrus cloud cover', zlon1, zlon2
+        do 422 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                  (nint(100.*zona(j,k)),j=norec,1,-incz)
+  422   continue
+        write(iu,406) (nint(100.*tzona(j)),j=norec,1,-incz)
+ 
+ 
+        write(iu,400) 'stratus cloud cover', zlon1, zlon2
+        do 432 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                  (nint(100.*zons(j,k)),j=norec,1,-incz)
+  432   continue
+        write(iu,406) (nint(100.*tzons(j)),j=norec,1,-incz)
+ 
+c------
+        write(iu,*) char(12)
+        write(iu,390) (nint(alatg(j)*180./3.14159), j=norec,1,-incz)
+c------
+ 
+        write(iu,400) 'liquid water content', zlon1, zlon2
+        do 442 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                  (nint(1.e6*zonl(j,k)),j=norec,1,-incz)
+  442   continue
+        write(iu,*)
+        write(iu,446) '(10*g/m2):',(nint(tzonw (j)*100),j=norec,1,-incz)
+        write(iu,446) '     land:',(nint(tzonwl(j)*100),j=norec,1,-incz)
+        write(iu,446) '    ocean:',(nint(tzonwo(j)*100),j=norec,1,-incz)
+  446   format(6x,a10,2x,40i3)
+ 
+        zglobw = 0.
+        do 448 j=1,norec
+        do 448 i=1,nlon
+          zglobw = zglobw + totw(i,j)*w(j)
+  448   continue
+        write(iu,449) '   (g/m2):', 1000.*zglobw/(2.*nlon)
+  449   format(6x,a10,2x,f6.1)
+ 
+ 
+        write(iu,*) char(12)
+        write(iu,400) 'relative humidity', zlon1, zlon2
+        do 452 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                  (nint(100.*zonr(j,k)),j=norec,1,-incz)
+  452   continue
+ 
+c------
+        write(iu,*) char(12)
+        write(iu,390) (nint(alatg(j)*180./3.14159), j=norec,1,-incz)
+c------
+ 
+        write(iu,400) 'specific humidity (g/kg)', zlon1, zlon2
+        do 462 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                  (nint(1000.*zonq(j,k)),j=norec,1,-incz)
+  462   continue
+        write(iu,*)
+        write(iu,446) '  (kg/m2):',(nint(tzonq(j)),j=norec,1,-incz)
+ 
+ 
+        write(iu,*) char(12)
+        write(iu,400) 'temperature (deg C)', zlon1, zlon2
+        do 472 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                  (nint(zone(j,k)-tmelt),j=norec,1,-incz)
+  472   continue
+        write(iu,406) (nint(tzone(j)-tmelt),j=norec,1,-incz)
+ 
+c------
+        write(iu,*) char(12)
+        write(iu,390) (nint(alatg(j)*180./3.14159), j=norec,1,-incz)
+c------
+ 
+        write(iu,400) '"potential temperature" (deg C)', zlon1, zlon2
+        do 482 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                 (nint(zone(j,k)/sigkpk(k)-tmelt),j=norec,1,-incz)
+  482   continue
+ 
+ 
+        write(iu,400) '"pbl" plume vertical velocity (0.1 m/s)',
+     *                zlon1, zlon2
+        do 492 k=1,nlev
+c         write(iu,404) k, sig(k), zhei(k)*.001,
+c    *                  (nint(10.*zonv0(j,k)),j=norec,1,-incz)
+c         if (k.ge.nlev-1)write(iu,4040) k, sig(k), zhei(k)*.001,!777777
+c    *                  (nint(10.*zonv0(j,k)),j=norec,1,-1   )   !777777
+c4040     format(i2,f7.3,f7.2,2x,50i6)                           !777777
+          write(iu,4041) k, sig(k), zhei(k)*.001,                !777777
+c    *                  (nint(10.*zonv0(j,k)),j=4,1,-1)          !777777
+     *                  (         zonv0(j,k) ,j=4,1,-1)          !777777
+ 4041     format(i2,f7.3,f7.2,2x,4e20.8)                         !777777
+  492   continue
+ 
+ 
+        write(iu,400) '"free" plume vertical velocity (0.1 m/s)',
+     *                zlon1, zlon2
+        do 494 k=1,nlev
+          write(iu,404) k, sig(k), zhei(k)*.001,
+     *                  (nint(10.*zonv1(j,k)),j=norec,1,-incz)
+  494   continue
+ 
+      endif
+ 
+c-------------
+c Map printout
+c-------------
+ 
+      if (ifpri .and. want_map) then
+ 
+        do 498 j=1,norec
+          jm = max (j-1, 1)
+          jp = min (j+1, norec)
+          do 499 i=1,nlon
+            im = mod(i+nlon-2,nlon) + 1
+            ip = mod(i,nlon) + 1
+            imap(i,j) = 0
+            if (   yoro(i,j).ge.0.5 .and.
+     *           ( yoro(im,j).lt.0.5 .or. yoro(ip,j).lt.0.5 .or.
+     *             yoro(i,jm).lt.0.5 .or. yoro(i,jp).lt.0.5
+     *           )
+     *         )  imap(i,j) = -999
+  499     continue
+  498   continue
+ 
+        write(ctmp,500) 'total', zday-kount*dtime/86400., zday
+  500   format(a,' cloud cover for calendar days',f9.3,' to',f9.3)
+        do 502 j=1,norec
+          do 504 i=1,nlon
+            if (imap(i,j).ne.-999) imap(i,j) = nint(tott(i,j)*10.)
+  504     continue
+  502   continue
+        call mapout (iu, imap, nlon, norec, along, alatg, -999, ctmp)
+ 
+ 
+        write(ctmp,500) 'convective', zday-kount*dtime/86400., zday
+        do 512 j=1,norec
+          do 514 i=1,nlon
+            if (imap(i,j).ne.-999) imap(i,j) = nint(totc(i,j)*10.)
+  514     continue
+  512   continue
+        call mapout (iu, imap, nlon, norec, along, alatg, -999, ctmp)
+ 
+ 
+        write(ctmp,500) 'anvil cirrus', zday-kount*dtime/86400., zday
+        do 522 j=1,norec
+          do 524 i=1,nlon
+            if (imap(i,j).ne.-999) imap(i,j) = nint(tota(i,j)*10.)
+  524     continue
+  522   continue
+        call mapout (iu, imap, nlon, norec, along, alatg, -999, ctmp)
+ 
+ 
+        write(ctmp,500) 'stratus', zday-kount*dtime/86400., zday
+        do 532 j=1,norec
+          do 534 i=1,nlon
+            if (imap(i,j).ne.-999) imap(i,j) = nint(tots(i,j)*10.)
+  534     continue
+  532   continue
+        call mapout (iu, imap, nlon, norec, along, alatg, -999, ctmp)
+ 
+ 
+        write(ctmp,500) 'lowest-level stratus',
+     *                  zday-kount*dtime/86400., zday
+        do 536 j=1,norec
+          do 538 i=1,nlon
+            if (imap(i,j).ne.-999) imap(i,j) = nint(totsb(i,j)*10.)
+  538     continue
+  536   continue
+        call mapout (iu, imap, nlon, norec, along, alatg, -999, ctmp)
+ 
+ 
+        write(ctmp,540) zday-kount*dtime/86400., zday
+  540   format(' liquid water content (vert.int., 100*g/m2)',
+     *         ' for calendar days',f9.3,' to',f9.3)
+        do 542 j=1,norec
+          do 544 i=1,nlon
+            if (imap(i,j).ne.-999)
+     *        imap(i,j) = min(35,nint(totw(i,j)*10.))
+  544     continue
+  542   continue
+        call mapout (iu, imap, nlon, norec, along, alatg, -999, ctmp)
+ 
+ 
+        write(ctmp,550) zday-kount*dtime/86400., zday
+  550   format(' lowest-level air temperature (deg C)',
+     *         ' for calendar days',f9.3,' to',f9.3)
+        do 552 j=1,norec
+          do 554 i=1,nlon
+            if (imap(i,j).ne.-999)
+     *        imap(i,j) = max (-30,min(35,nint(tote(i,j)-tmelt)))
+  554     continue
+  552   continue
+        call mapout (iu, imap, nlon, norec, along, alatg, -999, ctmp)
+ 
+      endif
+ 
+c          If end-of-month, reset accumulators
+ 
+      if (ifeom) then
+        kount = 0
+        call zero (zont, norec*nlev)
+        call zero (zonc, norec*nlev)
+        call zero (zona, norec*nlev)
+        call zero (zons, norec*nlev)
+        call zero (zonl, norec*nlev)
+        call zero (zonr, norec*nlev)
+        call zero (zone, norec*nlev)
+        call zero (zonq, norec*nlev)
+        call zero (zonv0,norec*nlev)
+        call zero (zonv1,norec*nlev)
+ 
+        call zero (tott, nlon*norec)
+        call zero (totc, nlon*norec)
+        call zero (tota, nlon*norec)
+        call zero (tots, nlon*norec)
+        call zero (totsb,nlon*norec)
+        call zero (totw, nlon*norec)
+        call zero (tote, nlon*norec)
+        call zero (totq, nlon*norec)
+      endif
+ 
+c        Accumulate and print 2-d maps for specific diurnal intervals
+ 
+c     call cldcart (totcld, totcldc, totclda, totclds, jj)
+ 
+      return
+      end
+c
+c **************************** cldcart *********************************
+c
+      subroutine cldcart (totcld, totcldc, totclda, totclds, jj)
+ 
+c Accumulates 2-D maps of total cloudinesses at diurnal intervals
+c (ie, specific GMT times), and prints to scratch files at end of run.
+c Number of intervals is nper, and output times are
+c i*24/nper hrs GMT, i=1,nper. Unit numbers are 61,62,.., 71,72,..,etc.
+ 
+c To use, uncomment lines beginning with "cx". If not used, keep these
+c commented so the local (saved) storage arrays do not waste memory.
+ 
+c totcld  = vert-int. total         cloudiness (global lon,lat)
+c totcldc = vert-int. convective    cloudiness (global lon,lat)
+c totclda = vert-int. anvil-cirrus  cloudiness (global lon,lat)
+c totclds = vert-int. stratus       cloudiness (global lon,lat)
+c jj      = latitude index
+ 
+c ---------------------------------------------------------------------
+#include <PARAMS.h>
+c ---------------------------------------------------------------------
+#include <COMCON.h>
+c ---------------------------------------------------------------------
+#include <COMIMP.h>
+c ---------------------------------------------------------------------
+#include <COMINI.h>
+c ---------------------------------------------------------------------
+#include <COML10.h>
+c ---------------------------------------------------------------------
+#include <COMMAP.h>
+c ---------------------------------------------------------------------
+#include <COMMP2.h>
+c ---------------------------------------------------------------------
+#include <COMTIM.h>
+c ---------------------------------------------------------------------
+      dimension
+     *  totcld(nlon,norec),    totcldc(nlon,norec),
+     *  totclda(nlon,norec),   totclds(nlon,norec)
+c ---------------------------------------------------------------------
+      parameter (nper=8)
+cx    dimension
+cx   *  tott(nlon,norec,nper), totc(nlon,norec,nper),
+cx   *  tota(nlon,norec,nper), tots(nlon,norec,nper)
+      dimension
+     *  imap(nlon,norec)
+ 
+      character*100 ctmp
+      logical first
+      data first /.true./
+      save tott,totc,tota,tots,kount,first
+c --------------------------------------------------------------------
+ 
+c        Initialize accumulators (first timestep, and first latitide)
+ 
+      if (first) then
+        kount = 0
+cx      call zero (tott, nlon*norec*nper)
+cx      call zero (totc, nlon*norec*nper)
+cx      call zero (tota, nlon*norec*nper)
+cx      call zero (tots, nlon*norec*nper)
+        first = .false.
+      endif
+ 
+c        If not at diurnal interval timestep, return.
+c        Else set interval number iper.
+ 
+      n = mod (nstep-1, nint(86400./dtime)) + 1
+      m = nint (86400./(dtime*nper))
+      if (mod(n,m).ne.0) return
+      iper = n/m
+ 
+c        Increment accumulation counter
+ 
+      if (jj.eq.1 .and. iper.eq.1) kount = kount + 1
+ 
+c        Accumulate 2-D cloudinesses
+ 
+      do 250 i=1,nlon
+cx      tott(i,jj,iper) = tott(i,jj,iper) + totcld (i,jj)
+cx      totc(i,jj,iper) = totc(i,jj,iper) + totcldc(i,jj)
+cx      tota(i,jj,iper) = tota(i,jj,iper) + totclda(i,jj)
+cx      tots(i,jj,iper) = tots(i,jj,iper) + totclds(i,jj)
+  250 continue
+ 
+c        If not last latitude, return
+ 
+      if (jj.ne.norec) return
+ 
+c        If not last timestep of run, return
+ 
+      if (nstep.ne.nstop) return
+ 
+c        Divide accumulated quantities by accumulation counter
+ 
+      do 300 iper=1,nper
+        do 302 j=1,norec
+          do 304 i=1,nlon
+cx          tott(i,j,iper) = tott(i,j,iper) / kount
+cx          totc(i,j,iper) = totc(i,j,iper) / kount
+cx          tota(i,j,iper) = tota(i,j,iper) / kount
+cx          tots(i,j,iper) = tots(i,j,iper) / kount
+  304     continue
+  302   continue
+  300 continue
+ 
+c        Print out map(s) for each diurnal interval to a separate file
+ 
+      do 1000 iper=1,nper
+ 
+        iu = iper
+ 
+cx      write(ctmp,500) iper, iper*(24./nper)
+cx500   format('total cloud cover (tenths) for diurnal interval #',
+cx   *         i3, ' (',f5.2,' GMT)')
+cx      do 502 j=1,norec
+cx        do 504 i=1,nlon
+cx          imap(i,j) = nint(tott(i,j,iper)*10.)
+cx504     continue
+cx502   continue
+cx      call mapout (60+iu, imap, nlon, norec, along, alatg, -999,ctmp)
+ 
+ 1000 continue
+ 
+      return
+      end

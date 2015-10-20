@@ -1,0 +1,196 @@
+#----------------------------------------------------------------
+# Makefile for compiling and linking genesis3.0 on LINUX clusters
+#----------------------------------------------------------------
+
+SHELL = /bin/sh
+.SUFFIXES: .F .o
+#.SILENT:
+
+#-----------------------------------------------------------------------
+ifeq ($(shell hostname),iguana.essc.psu.edu)
+  HOST = iguana
+  HOSTSYS = linux
+  DH   = /iguana/s1/pollard
+  NI = /usr/include
+  NA = /usr/bin
+endif 
+
+ifeq ($(shell hostname),rumen)
+  HOST = iguana
+  HOSTSYS = sun
+  DH   = /iguana/s1/pollard
+  NI = /usr/local/include
+  NA = /usr/local/lib
+endif 
+
+ifeq ($(shell hostname),lionxo.aset.psu.edu)
+  HOST = lion
+  HOSTSYS = linux
+  DH   = /home2/dxp21
+  NI = /usr/global/netcdf-3.5.1/include
+  NA = /usr/global/netcdf-3.5.1/lib
+endif
+
+ifeq ($(shell hostname),condor.geo.lsa.umich.edu)
+  HOST = condor
+  HOSTSYS = linux
+  DH = /condor/data2/pollard
+  NI = /condor/opt/netcdf-3.5.1/include
+  NA = /condor/opt/netcdf-3.5.1/lib
+endif
+
+ifeq ($(shell hostname),petrarch.geo.lsa.umich.edu)
+  HOST = petrarch
+  HOSTSYS = linux
+  DH = /condor/data2/pollard
+  NI = /condor/opt/netcdf/include
+  NA = /condor/opt/netcdf/lib
+endif
+
+ifeq ($(shell hostname),luna)
+  HOST = luna
+  HOSTSYS = linux
+  DH =  /home/data01/pollard
+  NI =  /home/data01/pollard/include
+  NA =  /home/data01/pollard/lib
+endif
+
+#-----------------------------------------------------------------------
+
+INCAGCM = $(DH)/Agcm/*.h make*
+INCLSX = $(DH)/Lsx/*.h make*
+INCEVE = $(DH)/Eve/src3/*.h make*
+
+VPATH = .:$(DH)/Agcm:$(DH)/Lsx:$(DH)/Eve/src3:$(DH)/Agcm/Inline
+IPATH = -I. -I$(DH)/Agcm -I$(DH)/Lsx -I$(DH)/Eve/src3 -I$(NI)
+
+#-----------------------------------------------------------------------
+
+ DFLAGS = -DA_T42 -DS_2X2 -Dgcm -Dnopack -Dneedfft -Dtablesvp -Domp -DNETCDF
+#DFLAGS = -DA_T63 -DS_2X2 -Dgcm -Dnopack -Dneedfft -Dtablesvp -Domp -DNETCDF -Disotrac
+
+ifeq ($(HOSTSYS),linux)
+  FF = ifort
+  COMPFLAGS = -w -openmp -r8 -Dlinux 
+ #COMPFLAGS = -w -openmp -r8 -Dlinux -fpe0
+endif
+ifeq ($(HOSTSYS),sun)
+  FF = f77
+  COMPFLAGS = -xtypemap=real:64,double:64,integer:32 \
+              -erroff=WDECL_LOCAL_NOTUSED -w -Dsun
+endif
+
+STATIC =
+ifeq ($(HOST),petrarch)
+# needed for petrarch nodes:
+  STATIC = -i-static
+endif
+ifeq ($(HOST),luna)
+  STATIC = -align -i-static
+endif
+
+LOADFLAGS =  -L$(NA) -lnetcdf
+
+#OPT   = -O0 
+#OPT   = -O2 
+ OPT   = -O3
+
+ DEBUG = 
+#DEBUG = -g
+#DEBUG = -g -C
+
+ DEBUGC =  
+
+ CC = cc
+
+#-----------------------------------------------------------------------
+
+genexe.exe: \
+	    genctl.o    cloud.o   convec.o  \
+	    filio.o    hisres.o   init.o    \
+	    radctl.o     radsolar.o    radir.o  \
+	    slth.o   spect.o    util.o   vdif.o \
+	    budlsx.o    inisurf.o   radlsx.o    soil.o      utilsx.o \
+	    lsx.o       sheet.o     surfctl.o   vegdat.o histlsx.o \
+	    ibis.o      ocean.o     snow.o      turlsx.o \
+	    dice.o \
+	    canopy.o gv.o inertial.o irf.o lais.o \
+	    leaf.o leaff.o rcd.o rwlf.o scf.o \
+	    inline.o   convert.o 
+	echo '** Linking genexe'
+
+	$(FF) $(OPT) $(COMPFLAGS) $(STATIC) -o genexe  \
+	    genctl.o    cloud.o   convec.o  \
+	    filio.o    hisres.o   init.o    \
+	    radctl.o     radsolar.o    radir.o  \
+	    slth.o   spect.o    util.o   vdif.o \
+	    budlsx.o    inisurf.o   radlsx.o    soil.o      utilsx.o \
+	    lsx.o       sheet.o     surfctl.o   vegdat.o histlsx.o \
+	    ibis.o      ocean.o     snow.o      turlsx.o \
+	    dice.o \
+	    canopy.o gv.o inertial.o irf.o lais.o \
+	    leaf.o leaff.o rcd.o rwlf.o scf.o \
+	    inline.o   convert.o              \
+	    $(LOADFLAGS)                  
+
+#-----------------------------------------------------------------------
+
+genctl.o: genctl.F   $(INCAGCM)
+cloud.o:  cloud.F    $(INCAGCM)
+convec.o: convec.F   $(INCAGCM)
+filio.o:  filio.F    $(INCAGCM)
+hisres.o: hisres.F   $(INCAGCM)
+init.o:   init.F     $(INCAGCM)
+radctl.o: radctl.F   $(INCAGCM)
+radsolar.o: radsolar.F  $(INCAGCM)
+radir.o: radir.F   $(INCAGCM)
+slth.o:   slth.F     $(INCAGCM)
+spect.o:  spect.F    $(INCAGCM)
+util.o:   util.F     $(INCAGCM)
+vdif.o:   vdif.F     $(INCAGCM)
+
+dice.o:    dice.F    $(INCLSX)
+budlsx.o:  budlsx.F  $(INCLSX)
+histlsx.o: histlsx.F $(INCLSX)
+inisurf.o: inisurf.F $(INCLSX)
+radlsx.o:  radlsx.F  $(INCLSX)
+soil.o:    soil.F    $(INCLSX)
+utilsx.o:  utilsx.F  $(INCLSX)
+lsx.o:     lsx.F     $(INCLSX)
+sheet.o:   sheet.F   $(INCLSX)
+surfctl.o: surfctl.F $(INCLSX)
+vegdat.o:  vegdat.F  $(INCLSX)
+ibis.o:    ibis.F    $(INCLSX)
+ocean.o:   ocean.F   $(INCLSX)
+snow.o:    snow.F    $(INCLSX)
+turlsx.o:  turlsx.F  $(INCLSX)
+
+canopy.o:   canopy.c   $(INCEVE)
+gv.o:       gv.c       $(INCEVE)
+inertial.o: inertial.c $(INCEVE)
+irf.o:      irf.c      $(INCEVE)
+lais.o:     lais.c     $(INCEVE)
+leaf.o:     leaf.c     $(INCEVE)
+leaff.o:    leaff.c    $(INCEVE)
+rcd.o:      rcd.c      $(INCEVE)
+rwlf.o:     rwlf.c     $(INCEVE)
+scf.o:      scf.c      $(INCEVE)
+
+inline.o: inline.F 
+convert.o: convert.c 
+
+
+#-----------------------------------------------------------------------
+
+.F.o:
+	echo '** Compiling $*.F'
+	$(FF) $(COMPFLAGS) $(STATIC) $(OPT) $(DEBUG) $(DFLAGS) $(IPATH) -c $<
+
+#-----------------------------------------------------------------------
+
+.c.o:
+	echo '** Compiling $*.c'
+	$(CC) $(DEBUGC) -Dlinux -c $<
+	#$(CC) $(DEBUGC) -Dlinux -Dpathscale -c $<
+
+#-----------------------------------------------------------------------

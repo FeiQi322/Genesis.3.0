@@ -1,0 +1,14 @@
+c -- $Id: COMHIX.h,v 1.2 2001/07/03 21:29:07 bill Exp $
+c -- $Source: /usr/local/portgcm/src/cvsroot/genesis.2.2/Agcm/COMHIX.h,v $
+c -- $Name:  $
+
+C
+CL            TEMPORARY ARRAY FOR TRANSMITTING ONE AGCM HISTORY VARIABLE
+CL            TO THE HISTORY-WRITE STORAGE AREA
+C
+      COMMON /COMHIX/
+     +   HISTMP(NLON,NOREC,NLEVP), HISTMP2(NLON,NOREC,NLEVP)
+C
+      DIMENSION HISTMPA(NLON,NOREC)
+      EQUIVALENCE (HISTMP, HISTMPA)
+

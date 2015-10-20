@@ -1,0 +1,2100 @@
+c
+c****************************** RADCTL *******************************
+c
+c        Main driver for both long-wave and short-wave radiation
+
+c=======================
+#if defined (STANDALONE)
+c=======================
+      program radctl_test
+c====
+#else
+c====
+      subroutine radctl (
+c                input:
+     *           yt, yq, yrelhum, ypm, ypl, ypthic, 
+     *           ycld, yclwp, yps,
+     *           cosq, fraq, albsud, albsui, firems, yoroaer,
+c                output:
+     *           yqrs, hfrsa, hsabtp, hsabat, hclrss, hclrst, 
+     *           hsolin, solsud, solsui, hfrsac, 
+     *           yqrl, firabs, sldflx, hfrla, hfirtp, hclrls, hclrlt
+#if defined (LKAEROSOL)
+     *          ,yoro, sfcirrad
+#endif
+     *           )
+c=====
+#endif
+c=====
+
+#include <PARAMS.h>
+#include <COMCON.h>
+#include <COMDYR.h>
+#include <COMFLG.h>
+#include <COMLUN.h>
+#include <COMMAP.h>
+#include <COMTIM.h> 
+#include <CRDCTL.h> 
+#include <LGASES.h>
+      
+c     input:
+      dimension
+     *  yt(nlon,norec,nlev),     t_r(nrad,nlev),
+     *  yq(nlon,norec,nlev),     q_r(nrad,nlev),
+     *  yrelhum(nlon,norec,nlev),relhum_r(nrad,nlev),
+     *  ypm(nlon,norec,nlev),    pm_r(nrad,nlev),
+     *  ypl(nlon,norec,nlevp),   pl_r(nrad,nlevp),   ! nlevp
+     *  ypthic(nlon,norec,nlev), pthic_r(nrad,nlev),
+     *  ycld(nlon,norec,nlev),   cld_r(nrad,nlevp),  ! nlevp
+     *  yclwp(nlon,norec,nlev),  clwp_r(nrad,nlev),
+     *  clwp_sol_r(nrad,nlev),   clwp_ir_r(nrad,nlev),
+     *  yps(nlon,norec),         ps_r(nrad),
+     *  cosq(nlon,norec),        cosq_r(nrad),
+     *  fraq(nlon,norec),        fraq_r(nrad),
+     *  albsud(nlon,norec,2),    albsud_r(nrad,2),
+     *  albsui(nlon,norec,2),    albsui_r(nrad,2),
+     *  firems(nlon,norec),      tg_r(nrad),
+     *  yoroaer(nlon,norec)
+#if defined (LKAEROSOL)
+      dimension 
+     *  yoro(nlon,norec),        sfcirrad(nlon,norec)
+#endif
+
+      dimension
+     *  o3vmr(nlon,norec,nlev),  o3vmr_r(nrad,nlev)
+      dimension
+     *  pmlog_r(nrad,nlev),      pllog_r(nrad,nlevp),  ! nlevp
+     *  alon_r(nrad),            alat_r(nrad), 
+     *  clat_r(nrad),            oro_r(nrad),            
+     *  rel_r(nrad,nlev),        rei_r(nrad,nlev),
+     *  fice_r(nrad,nlev),       emis_r(nrad,nlev),
+     *  effcld_r(nrad,nlevp)                           ! nlevp
+
+c     output:
+      dimension
+c       solar:
+     *  yqrs(nlon,norec,nlevp),  qrs_r(nrad,0:nlevp),  ! 0:nlevp
+     *  hfrsa(nlon,norec),       fsns_r(nrad),
+     *  hsabtp(nlon,norec),      fsnt_r(nrad), 
+     *  hsabat(nlon,norec),             
+     *  hclrss(nlon,norec),      fsnsc_r(nrad),    
+     *  hclrst(nlon,norec),      fsntc_r(nrad),  
+     *  hsolin(nlon,norec),      solin_r(nrad),  
+     *  solsud(nlon,norec,2),    sols_r(nrad),      soll_r(nrad),
+     *  solsui(nlon,norec,2),    solsd_r(nrad),     solld_r(nrad),
+     *  hfrsac(nlon,norec), 
+c       ir:
+     *  yqrl(nlon,norec,nlevp),  qrl_r(nrad,nlevp),    ! nlevp
+     *  firabs(nlon,norec),      flwds_r(nrad),
+     *  sldflx(nlon,norec),
+     *  hfrla(nlon,norec),       flns_r(nrad),
+     *  hfirtp(nlon,norec),      flnt_r(nrad),
+     *  hclrls(nlon,norec),      flnsc_r(nrad),
+     *  hclrlt(nlon,norec),      flntc_r(nrad) 
+
+      parameter (pi = 3.14159265358979)
+      logical lfirst, ifreqclr, testhist
+      save lfirst, ifreqclr
+      data lfirst /.true./
+
+#if defined (LKAEROSOL)
+      logical firstirrad
+      save firstirrad
+      data firstirrad /.true./
+#endif
+
+c=======================
+#if defined (STANDALONE)
+c=======================
+      dimension sig18(1:18), sigl18(1:19)
+      data sig18 /
+     *  .005, .013, .033, .064, .099, .139,
+     *  .189, .251, .325, .409, .501, .598,
+     *  .695, .787, .866, .929, .970, .993 /
+      data sigl18 /
+     *  .003, .008, .022, .049, .083, .118, 
+     *  .163, .219, .288, .367, .456, .551,
+     *  .649, .744, .831, .903, .956, .985, 1.000 /
+
+      dimension tav18(18), qav18(18), rav18(18), cav18(18), pav18(18)
+      data tav18 /
+     * -17.8417, -46.9043, -57.4984, -63.5336,
+     * -64.2524, -62.7438, -59.9773, -52.3048,
+     * -40.8503, -29.0857, -18.5934, -10.0005,
+     *  -3.0564,   2.0565,   5.5592,   8.9398,
+     *  11.5580,  13.2312 /
+
+      data qav18 /
+     *  0.0000006347, 0.0000006447, 0.0000007312, 0.0000010693,
+     *  0.0000018389, 0.0000039675, 0.0000109800, 0.0000357803,
+     *  0.0001228768, 0.0003362261, 0.0007290238, 0.0013241703,
+     *  0.0021075587, 0.0033102750, 0.0052131030, 0.0067751935,
+     *  0.0076023828, 0.0079814733 /
+
+      data rav18 /
+     *  0.000011, 0.000311, 0.002953, 0.022272,
+     *  0.078219, 0.165698, 0.382877, 0.481192,
+     *  0.472827, 0.447582, 0.422731, 0.419584,
+     *  0.444063, 0.531197, 0.697840, 0.763480,
+     *  0.743421, 0.712926 /
+
+      data cav18 /
+     *  0.000000, 0.000000, 0.000000, 0.000000,
+     *  0.000000, 0.000028, 0.007903, 0.034724,
+     *  0.056045, 0.058095, 0.071369, 0.107955,
+     *  0.086924, 0.150706, 0.281645, 0.256438,
+     *  0.168871, 0.110592 /
+
+      data pav18 /
+     *  0.0000000000, 0.0000000000, 0.0000000000, 0.0000000000,
+     *  0.0000048104, 0.0007863541, 0.0036267308, 0.0071778641,
+     *  0.0099378339, 0.0133104352, 0.0174909023, 0.0242781595,
+     *  0.0372551410, 0.0403284008, 0.0336047249, 0.0237184035,
+     *  0.0122510610, 0.0060663514 /
+
+c     for differences between 2 standalone calcs:
+      parameter (nloop=2)
+      dimension qrs_loop(nlevp,nloop), qrl_loop(nlevp,nloop)
+
+c>>>>>>>>>>>>>>>>>>>>>
+      do iloop=1,nloop  ! for standalone yqr[s,l] differences
+c>>>>>>>>>>>>>>>>>>>>>
+
+      solpar =  1367./4.
+      solfac = 1.
+
+      co2ppv = 355.0e-6
+      ch4ppv = 1.714e-6
+      n2oppv = 0.311e-6
+      f11ppv = 0.280e-9
+      f12ppv = 0.503e-9
+      o3fac =  1. 
+      o2ppm = .23143
+      aertauvis = .14
+      ssacld(1) = .99120
+      ssacld(2) = .98240
+      mxaerl = 3
+
+c     if (iloop.eq.2) co2ppv= 0.
+c     if (iloop.eq.2) ch4ppv= 0.
+c     if (iloop.eq.2) n2oppv= 0.
+c     if (iloop.eq.2) o3fac = 0.
+c     if (iloop.eq.2) o2ppm = 0.
+      if (iloop.eq.2) aertauvis = 0.
+
+c---
+c     co2ppv = 0.
+c     ch4ppv = 0.
+c     n2oppv = 0.
+c     f11ppv = 0.
+c     f12ppv = 0.
+c     o3fac =  0. 
+c     o2ppm =  0. 
+c     aertauvis = 0.
+c---
+      if (co2ppv.eq.0.) co2ppv = 1.e-15
+      if (ch4ppv.eq.0.) ch4ppv = 1.e-15
+      if (n2oppv.eq.0.) n2oppv = 1.e-15
+      if (f11ppv.eq.0.) f11ppv = 1.e-15
+      if (f12ppv.eq.0.) f12ppv = 1.e-15
+      if (o3fac.eq.0.)  o3fac  = 1.e-15
+      if (o2ppm.eq.0.)  o2ppm  = 1.e-15
+
+      fradsw = .true.
+      fradlw = .true.
+      fradlwa= .true.
+      ifreqclr = .true.
+
+      ggunif = .false.
+      nocldtop = 0
+      nocldbot = 0
+c     if (iloop.eq.2) nocldbot = 1
+
+      nstep  = 1
+      nrstrt = 1
+      jyear = 2001
+      jmnth = 1
+      jday  = 1
+      mcsec = 1
+      dtime = 1800.
+      tradsw = dtime*3.
+      eccu = 0.
+      oblu = 23.5
+      precu = 0.
+      nout = 6
+
+      tmelt = 273.16
+      gravit = 9.80616 
+      cpair = 1004.64
+      stebol = 5.66961e-8
+
+      do ji=1,nlon
+c       along(ji) = ((ji-.5)/nlon)*2.*pi
+        along(ji) = 0.
+      enddo
+      do jj=1,norec
+c       alatg(jj) = ((jj-.5)/norec)*pi - 0.5*pi
+        alatg(jj) = 0.
+      enddo
+      do jk=1,nlev
+        sig(jk) = sig18(jk)
+        sigkmh(jk) = sigl18(jk)
+      enddo
+      sigkmh(nlevp) = sigl18(nlevp)
+
+      do jj=1,norec
+        do ji=1,nlon
+          yps(ji,jj) = 1.e5
+          do jk=1,nlev
+c           yt(ji,jj,jk)      = 14. + tmelt
+c           yq(ji,jj,jk)      = .003
+c           ycld(ji,jj,jk)  = 0.
+c           if (jk.ge.12 .and. jk.le.15) ycld(ji,jj,jk)  = 0.25
+c           yclwp(ji,jj,jk) = (ypthic(ji,jj,jk)/gravit)*ycld(ji,jj,jk)
+c    *                        *.000040
+c           yrelhum(ji,jj,jk) = 0.5
+
+            yt(ji,jj,jk)      = tav18(jk) + tmelt
+            yq(ji,jj,jk)      = qav18(jk)
+            yrelhum(ji,jj,jk) = rav18(jk)
+c           yq(ji,jj,jk)      = 1.e-15
+c           yrelhum(ji,jj,jk) = 0.
+            ycld (ji,jj,jk) = cav18(jk) 
+            yclwp(ji,jj,jk) = pav18(jk) 
+c           if (iloop.eq.2) then
+c             ycld (ji,jj,jk) = 0.
+c             yclwp(ji,jj,jk) = 0.
+c           endif
+            ypm(ji,jj,jk)    = sig(jk)*yps(ji,jj)
+            ypl(ji,jj,jk)    = sigkmh(jk)*yps(ji,jj)
+            ypthic(ji,jj,jk) = (sigkmh(jk+1)-sigkmh(jk))*yps(ji,jj)
+          enddo
+
+          ypl(ji,jj,nlevp) = sigkmh(nlevp)*yps(ji,jj)
+          firems(ji,jj) = stebol * (yt(ji,jj,nlev)**4)
+c         yoroaer(ji,jj) = 0.                          ! 0=ocean, 1=land
+c         yoroaer(ji,jj) = 1.
+          yoroaer(ji,jj) = 0.5
+        enddo
+      enddo
+c=====
+#endif
+c=====
+
+c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      if (nstep.eq.nrstrt) then
+c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        zeps = 0.622
+        call radini (gravit, cpair, zeps, stebol, co2ppv, o2ppm)
+
+#if ! defined (STANDALONE) 
+c       set flag for whether any clear-sky history fields requested,
+c       to be passed to radcsw (solar only, clrsky calc always done
+c       in radclw, testhist #s would be 31,33)
+        ifreqclr =testhist(32,0) .or. testhist(34,0) .or. testhist(65,0)
+#endif
+c
+c           ** compute orbital parameters for current era. do only
+c           ** at first timestep of *initial* runs (not restarts), so
+c           ** insolation seasonal cycle stays exactly constant in
+c           ** multiyear possibly restarted runs. (orbital params are
+c           ** saved on restart file.)
+ 
+        if (nstep.eq.1) call zenorb (jyear, ecc, obliq, prec, vern)
+c
+c           ** override current-era orbital params with user-specified
+c           ** values if any. if ecc and/or prec specified, recompute
+c           ** vern (using same code as at end of zenorb).
+c           ** nb: do this at first step of initial *and* restart runs.
+c
+        if (eccu .ne.-9999.) ecc   = eccu
+        if (oblu .ne.-9999.) obliq = oblu  * (pi/180.)
+        if (precu.ne.-9999.) prec  = precu * (pi/180.)
+        if (eccu.ne.-9999. .or. precu.ne.-9999.) then
+           zs = sin (0.5*prec) / sqrt ((1.+ecc)/(1.-ecc))
+           zc = cos (0.5*prec)
+           ze = 2. * atan2 (zs,zc)
+           vern = ze - ecc * sin(ze)
+        endif
+c~~~~~~~~~~
+      endif
+c~~~~~~~~~~
+
+c           ** if not time to do either solar or ir calcs, return
+
+#if ! defined (STANDALONE)
+c###########################################
+      if ( .not. (fradlw.or.fradsw) ) return
+c###########################################
+#endif
+
+c           ** set ozone mixing ratios (o3vmr, varies seasonally) 
+
+      call radoz1 (o3vmr, o3fac, showmaps)
+
+c           ** global solar-insolation and surface-albedo calculations
+
+c^^^^^^^^^^^^^^^^^^^^^
+      if (fradsw) then
+c^^^^^^^^^^^^^^^^^^^^^
+#if defined (STANDALONE)
+         eccf = 1.
+         do jj=1,norec
+           do ji=1,nlon
+c            cosq(ji,jj) = cos(0.*pi/180.)
+             cosq(ji,jj) = cos(20.*pi/180.)
+c            cosq(ji,jj) = cos(70.*pi/180.)
+             fraq(ji,jj) = 1.
+             albsud(ji,jj,1) = 0.3
+             albsud(ji,jj,2) = 0.3
+             albsui(ji,jj,1) = 0.3
+             albsui(ji,jj,2) = 0.3
+           enddo
+         enddo
+#else
+         if (lfirst) then
+            write(nout,50) ecc, obliq*(180./pi), prec*(180./pi)
+   50       format(/' Orbital parameters for this run:',
+     *             /'    eccentricity:',f9.6
+     *             /'    obliquity   :',f9.4,
+     *             /'    precession  :',f9.4)
+            lfirst = .false.
+         endif
+c
+c           ** Compute cos(zenith angle) cosq, daylight fraction fraq,
+c           ** and eccentricity factor eccf, for current time of year.
+c           ** (dmid is midpoint between beginning of this timestep and
+c           ** beginning of next timestep when zencal will be called.
+c           ** Subtract dtime since current timestep # nstep is from
+c           ** (nstep-1)*dtime to nstep*dtime, and mcsec marks latter.)
+
+c           ** If daylenrad (namelist, comcon.h) is not 86400,
+c           ** re-compute phase of day using seconds from run start 
+c           ** ((nstep-1)*dtime). Allow retrograde (-ve) daylenrad.   
+
+         izday = nint(abs(daylenrad))  ! daylenrad in namelist, comcon.h
+
+         if (izday.eq.86400 .and. daylenrad.gt.0.) then
+           dt = tradsw
+           dmid = 0.5*dt - dtime   ! mcsec marks nstep*dtime (t.s. end)
+           izsec = mcsec           ! nominal 24 hr day, use prog's mcsec
+
+         else if (izday.eq.0) then
+           dt = 300.              ! arbitrary averaging interval
+           dmid = 0.
+c          izsec = 12*3600        ! secs into current day (GMT,ie,at 0E)
+           izsec = nint( 86400.*(1. - mod(sslon+180.+360.,360.)/360.) )
+           if (izsec.eq.86400) izsec = 0
+
+         else
+           dt = tradsw
+           dmid = 0.5*dt
+           if (daylenrad.gt.0.) then
+             izsec = mod ( nint((nstep-1)*dtime), izday )
+           else
+             izsec = izday - mod ( nint((nstep-1)*dtime + dt), izday )
+             if (izsec.eq.izday) izsec = 0
+           endif
+           izsec = nint (izsec*86400. / float(izday))
+         endif
+
+         call zencal (jyear, jmnth, jday, izsec, dmid, dt,
+     *                ecc, obliq, prec, vern, dist, eccf, cosq, fraq,
+     *                alatg)
+
+c           ** calculate surface solar albedos
+
+         call alblsx (cosq, albsud, albsui)
+#endif
+c^^^^^^^^^^
+      endif
+c^^^^^^^^^^
+
+#if defined (LKAEROSOL)
+      if (nsrest.ne.1 .and. firstirrad) then
+        call resetr (sfcirrad, nlon*norec, 100.)
+        firstirrad = .false.
+      endif
+#endif
+
+c          Transfer solar constant from W/m2 to erg/cm2/s (*1000)
+c          (local scon, passed to radiation subrs)
+
+      scon = solfac*solpar*1000.
+ 
+#if defined ( omp )
+!$omp parallel do default (none)
+!$omp* shared  (yt, yq, yrelhum, ypm, ypl, ypthic, 
+!$omp*          ycld, yclwp, o3vmr,
+!$omp*          yps, cosq, fraq, albsud, albsui,
+!$omp*          firems, yoroaer, along, alatg,
+!$omp*          fradlw, fradlwa, fradsw, ifreqclr,
+!$omp*          ggunif, nocldtop, nocldbot, 
+!$omp*          eccf, scon, stebol, facclwp_sol, facclwp_ir, 
+!$omp*          ch4ppv, n2oppv, f11ppv, f12ppv, aertauvis,mxaerl,ssacld,
+
+!$omp*          yqrs, hfrsa, hsabtp, hsabat, hclrss, hclrst, hsolin,
+!$omp*          solsud, solsui, hfrsac,
+
+!$omp*          yqrl, firabs, sldflx, hfrla, hfirtp, hclrls, hclrlt
+!$omp*         ,tmelt
+#if defined (LKAEROSOL)
+!$omp*         ,reffac,sfcirrad, yoro
+#endif
+!$omp*         )
+
+!$omp* private (jj, k, i, 
+!$omp*          t_r, q_r, relhum_r, pm_r, pl_r, pmlog_r,pllog_r,pthic_r,
+!$omp*          cld_r, clwp_r, o3vmr_r,
+!$omp*          clwp_sol_r, clwp_ir_r,
+!$omp*          ps_r, cosq_r, fraq_r, albsud_r, albsui_r,
+!$omp*          tg_r, oro_r, alon_r, alat_r, clat_r,
+!$omp*          rel_r, rei_r, fice_r, emis_r, effcld_r,
+
+!$omp*          qrs_r, fsns_r, fsnt_r, fsnsc_r, fsntc_r, solin_r,
+!$omp*          sols_r, soll_r, solsd_r, solld_r,
+
+!$omp*          qrl_r, flwds_r, flns_r, flnt_r, flnsc_r, flntc_r
+!$omp*         ,ztb,zfac,zlat
+#if defined (LKAEROSOL)
+!$omp*         ,zflxa,zflxb,zflx,zfaca,zfacb,zfac,zlat,zwei
+#endif
+!$omp*         )
+!$omp* schedule(dynamic,2)
+#endif
+c
+c-----------------------------------
+c     ** loop over horizontal strips
+      do jj = 1,norec
+c-----------------------------------
+ 
+c          Transfer global arrays to radiation strip arrays
+
+        do k=1,nlev
+          do i=1,nrad
+            t_r(i,k)     = yt(i,jj,k)
+            q_r(i,k)     = max (yq(i,jj,k), 1.e-10)    !protect rad code
+            relhum_r(i,k)= min (yrelhum(i,jj,k), 0.99) !protect (wscoef)
+            pm_r(i,k)    = ypm(i,jj,k)
+            pl_r(i,k)    = ypl(i,jj,k)
+            pmlog_r(i,k) = log(pm_r(i,k))
+            pllog_r(i,k) = log(pl_r(i,k))
+            pthic_r(i,k) = ypthic(i,jj,k)
+            cld_r(i,k)   = ycld(i,jj,k)
+            clwp_r(i,k)  = yclwp(i,jj,k)*1000.  ! kg/m2 to g/m2
+
+            zlat = alatg(jj)*180./pi                           ! 777777
+            zfac = max (.30, min(1., .30+.70*(75.+zlat)/10. )) ! 777777
+            cld_r(i,k) = zfac*cld_r(i,k)                       ! 777777
+            clwp_r(i,k) = zfac*clwp_r(i,k)                     ! 777777
+
+            o3vmr_r(i,k) = o3vmr(i,jj,k)
+
+            if (k.le.nocldtop .or. k.gt.nlev-nocldbot) cld_r(i,k) = 0.
+            cld_r(i,k) = max (0., min (0.999, cld_r(i,k)))      ! getdat
+            if (cld_r(i,k).eq.0.) clwp_r(i,k) = 0.              ! getdat
+
+c           factor for "effective clwp" for radiation:
+            clwp_sol_r(i,k) = facclwp_sol * clwp_r(i,k) 
+            clwp_ir_r(i,k)  = facclwp_ir  * clwp_r(i,k) 
+
+c           o3mmr = o3vmr * (mol.wt.o3, g/mol) / (mol.wt.dry air, g/mol)
+cnotused    o3mmr_r(i,k)  = o3vmr_r(i,k) * (48.0000/28.9644)
+          enddo
+        enddo
+
+        do i=1,nrad
+          pl_r(i,nlevp)    = ypl(i,jj,nlevp)
+          pllog_r(i,nlevp) = log(pl_r(i,nlevp))
+          cld_r(i,nlevp)   = 0.
+
+          ps_r(i)       = yps(i,jj)
+          cosq_r(i)     = cosq(i,jj)
+          fraq_r(i)     = fraq(i,jj)
+          if (cosq_r(i).le.0. or. fraq_r(i).le.0.) then
+            cosq_r(i) = 0.
+            fraq_r(i) = 0.
+          endif
+          albsud_r(i,1) = albsud(i,jj,1)
+          albsud_r(i,2) = albsud(i,jj,2)
+          albsui_r(i,1) = albsui(i,jj,1)
+          albsui_r(i,2) = albsui(i,jj,2)
+          tg_r(i)       =  sqrt ( sqrt ( firems(i,jj)/stebol ) )
+          alon_r(i)     = along(i)
+          alat_r(i)     = alatg(jj)
+          clat_r(i)     = cos(alat_r(i))
+          oro_r(i)      = yoroaer(i,jj)
+        enddo
+
+c          Cloud droplet size
+
+        call cldefr (oro_r, t_r, rel_r, rei_r, fice_r, ps_r, pm_r, jj)
+
+
+#if defined (LKAEROSOL)
+c          Modify cloud drop radii (factor reffac in namelist)
+c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        if (reffac.gt.0.) then
+c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          do k=1,nlev
+            do i=1,nrad
+              rel_r(i,k) = reffac*rel_r(i,k)
+              rei_r(i,k) = reffac*rei_r(i,k)
+            enddo
+          enddo
+c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        else if (reffac.le.-100.) then
+c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+c         only over Antarctic land/ice:
+
+          do i=1,nrad
+            if (yoro(i,jj).gt.0.5 .and. alat_r(i)*180./pi.lt.-60.) then
+              zfac = abs(reffac)-100.
+              do k=1,nlev
+                rel_r(i,k) = zfac*rel_r(i,k)
+                rei_r(i,k) = zfac*rei_r(i,k)
+              enddo
+            endif
+          enddo
+c~~~~~~~~~~~
+        else
+c~~~~~~~~~~~
+          do i=1,nrad
+            zlat = abs(alat_r(i))*180./pi
+            zwei = max (0., min (1., (zlat-45.)/10.))
+            zfac = 1.*(1.-zwei) + abs(reffac)*zwei
+            do k=1,nlev
+              rel_r(i,k) = zfac*rel_r(i,k)
+              rei_r(i,k) = zfac*rei_r(i,k)
+            enddo
+          enddo
+c~~~~~~~~~~~~
+        endif
+c~~~~~~~~~~~~
+
+c       use running mean sfcirrad (set below), based on DMS vs. irrad 
+c       relation in Vallina+Simo,2007,Science,315,506-508
+c       zflxa = 100.    ! central irrad (W/m2)
+c       zflxb =  50.    ! scale irrad (W/m2) ! 100.
+c       zfaca =  reffac ! central factor (close to 1)
+c       zfacb = -0.5    ! scale factor
+c       do i=1,nrad
+c         if (yoro(i,jj).le.0.5) then        ! only over ocean/sea ice
+c           zflx = max (-1., min (1., (sfcirrad(i,jj)-zflxa)/zflxb))
+c           zfac = max (.01, zfaca + zfacb*zflx)
+c           do k=1,nlev
+c             rel_r(i,k) = zfac*rel_r(i,k)
+c             rei_r(i,k) = zfac*rei_r(i,k)
+c           enddo
+c         endif
+c       enddo
+#endif
+
+c          Cloud emissivity 
+
+        call cldems (clwp_ir_r, fice_r, rei_r, emis_r)
+
+c          Effective cloud cover for ir
+
+        do i=1,nrad
+          do k=1,nlev
+            effcld_r(i,k) = cld_r(i,k)*emis_r(i,k)
+          enddo
+          effcld_r(i,nlevp) = 0.
+        enddo
+
+c          Main radiation driver for ccm3. Nb: all flxs returned 
+c          from this subr have been converted to mks.
+
+        call radctl_ccm3
+     *              (jj,      alat_r,  clat_r,   oro_r,    tg_r,
+     *               pm_r,    pl_r,    pmlog_r,  pllog_r,  t_r,
+     *               q_r,     relhum_r,cld_r,    effcld_r, clwp_sol_r,
+     *               rel_r,   rei_r,   fice_r,
+     *               o3vmr_r, cosq_r,  fraq_r,   eccf,     scon,
+     *               albsud_r(1,1),    albsui_r(1,1),
+     *               albsud_r(1,2),    albsui_r(1,2),
+
+     *               qrs_r, fsns_r, fsnt_r, fsnsc_r, fsntc_r, solin_r,  
+     *               sols_r, soll_r, solsd_r, solld_r, 
+
+     *               qrl_r, flwds_r, flns_r, flnt_r, flnsc_r, flntc_r,
+
+     *               fradsw, fradlw, fradlwa, ifreqclr, ggunif,
+     *               ch4ppv, n2oppv, f11ppv, f12ppv,
+     *               aertauvis, mxaerl, ssacld
+     *              )
+ 
+c          Transfer output radiation strip arrays to global arrays
+
+c>>>>>>>>>>>>>>>>>>>>>>>
+        if (fradsw) then
+c>>>>>>>>>>>>>>>>>>>>>>>
+          do k=1,nlevp
+            do i=1,nrad
+              yqrs(i,jj,k)  = qrs_r(i,k)
+            enddo
+          enddo
+
+          do i=1,nrad
+            hfrsa(i,jj)    = fsns_r(i)       ! sol abs sfc            24
+            hsabtp(i,jj)   = fsnt_r(i)       ! sol abs modtop         27
+            hsabat(i,jj)   = qrs_r(i,0) 
+     *                     - qrs_r(i,1)      ! sol abs > modtop       28
+            hclrss(i,jj)   = fsnsc_r(i)      ! sol abs sfc clrsky     34
+            hclrst(i,jj)   = fsntc_r(i)      ! sol abs modtop clrsky  32
+            hsolin(i,jj)   = solin_r(i)      ! solar insolation       42
+            solsud(i,jj,1) = sols_r(i)       ! sol dwn sfc dir_vis    51
+            solsud(i,jj,2) = soll_r(i)       ! sol dwn sfc dir_nir    56
+            solsui(i,jj,1) = solsd_r(i)      ! sol dwn sfc dif_vis    51
+            solsui(i,jj,2) = solld_r(i)      ! sol dwn sfc dif_nir    56
+
+            hfrsac(i,jj)   = fsnsc_r(i)      ! sol abs sfc clrsky     65
+ 
+c           Reset global cosq,fraq in case cosq_r,fraq_r set to exactly 
+c           zero in radctl_ccm3/radcsw
+            cosq(i,jj) = cosq_r(i)
+            fraq(i,jj) = fraq_r(i)
+          enddo
+c>>>>>>>>>>>>
+        endif
+c>>>>>>>>>>>>
+
+c<<<<<<<<<<<<<<<<<<<<<<<
+        if (fradlw) then
+c<<<<<<<<<<<<<<<<<<<<<<<
+          do k=1,nlevp
+            do i=1,nrad
+              yqrl(i,jj,k)  = qrl_r(i,k)
+            enddo
+          enddo
+
+          do i=1,nrad
+            firabs(i,jj) = flwds_r(i)        ! ir dwn (=abs) sfc      23
+            sldflx(i,jj) = hfrsa(i,jj) - flns_r(i) !sol+ir net dwn sfc39
+            hfrla(i,jj)  = flns_r(i)          ! ir net up(-dwn) sfc   25
+            hfirtp(i,jj) = flnt_r(i)          ! ir up toa             26
+            hclrls(i,jj) = flnsc_r(i)         ! ir up-dwn sfc clrsky  33
+            hclrlt(i,jj) = flntc_r(i)         ! ir up     toa clrsky  31
+          enddo
+c<<<<<<<<<<<<
+        endif
+c<<<<<<<<<<<<
+
+c----------
+      enddo
+c----------
+
+#if defined (LKAEROSOL)
+c        Update running mean of surface irradiance (sfcirrad,in commun),
+c        used above to modify cloud drop radii
+
+      ztau_irrad = 14.*86400.                    ! 2 week e-folding time
+      zwei = 1. - exp(-dtime/ztau_irrad)    
+      do jj=1,norec
+        do i=1,nlon
+c         downward incident surface flux:
+c         zirrad = solsud(i,jj,1) + solsud(i,jj,2)
+c    *           + solsui(i,jj,1) + solsui(i,jj,2)
+c         SRD, as in Vallina+Simo, with k=.06, MLD=50:
+c         zirrad = hfrsa(i,jj)*(1.-exp(-.06*50.)) / (.06*50.)
+          zirrad = hfrsa(i,jj)*(1.-exp(-.06*15.)) / (.06*15.)
+          sfcirrad(i,jj) = zwei*zirrad + (1.-zwei)*sfcirrad(i,jj)  
+        enddo
+      enddo
+#endif
+
+#if defined (STANDALONE)
+
+      i = 1
+      iu = 6
+
+      do jj=1,norec
+        write (iu,'(/a,i6)') 'Standalone, Solar, jj=',jj,' iloop=',iloop
+        do k=1,nlevp
+          write (iu,'(a,i3,f12.6)') 'yqrs:', k, yqrs(i,jj,k)
+        enddo
+        write (iu,*)
+        write (iu,'(a,f12.6)') 'fsns  :', hfrsa(i,jj)
+        write (iu,'(a,f12.6)') 'fsnt  :', hsabtp(i,jj)
+        write (iu,'(a,f12.6)') 'hsabat:', hsabat(i,jj)
+        write (iu,'(a,f12.6)') 'fsnsc :', hclrss(i,jj)
+        write (iu,'(a,f12.6)') 'fsntc :', hclrst(i,jj)
+        write (iu,'(a,f12.6)') 'solin :', hsolin(i,jj)
+        write (iu,'(a,f12.6)') 'sols  :', solsud(i,jj,1)
+        write (iu,'(a,f12.6)') 'soll  :', solsud(i,jj,2)
+        write (iu,'(a,f12.6)') 'solsd :', solsui(i,jj,1)
+        write (iu,'(a,f12.6)') 'solld :', solsui(i,jj,2)
+        write (iu,'(a,f12.6)') 'solall:',
+     *    solsud(i,jj,1)+solsud(i,jj,2)+solsui(i,jj,1)+solsui(i,jj,2)
+  
+        write (iu,'(/a,i6)') 'Standalone, IR, jj=',jj,' iloop=',iloop
+        do k=1,nlevp
+          write (iu,'(a,i3,f12.6)') 'yqrl:', k, yqrl(i,jj,k)
+        enddo
+        write (iu,*)
+        write (iu,'(a,f12.6)') 'flwds :', firabs(i,jj)
+        write (iu,'(a,f12.6)') 'sldflx:', hfrsa(i,jj) - hfrla(i,jj)
+        write (iu,'(a,f12.6)') 'flns  :', hfrla(i,jj)
+        write (iu,'(a,f12.6)') 'flnt  :', hfirtp(i,jj)
+        write (iu,'(a,f12.6)') 'flnsc :', hclrls(i,jj)
+        write (iu,'(a,f12.6)') 'flntc :', hclrlt(i,jj)
+      enddo
+
+c        Print out differences (iloop=1,2)
+
+      i = 1
+      j = 1
+      do k=1,nlevp
+        qrs_loop(k,iloop) = yqrs(i,j,k)
+        qrl_loop(k,iloop) = yqrl(i,j,k)
+      enddo
+
+      if (iloop.eq.nloop .and. nloop.gt.1) then 
+        write (iu,'(/a)') 'yqrs, iloop = 1, 2, 2-1:'
+        do k=1,nlevp 
+          write (iu,'(i3,3f15.6)') 
+     *      k, qrs_loop(k,1), qrs_loop(k,2), qrs_loop(k,2)-qrs_loop(k,1)
+        enddo
+
+        write (iu,'(/a)') 'yqrl, iloop = 1, 2, 2-1:'
+        do k=1,nlevp 
+          write (iu,'(i3,3f15.6)') 
+     *      k, qrl_loop(k,1), qrl_loop(k,2), qrl_loop(k,2)-qrl_loop(k,1)
+        enddo
+      endif
+
+c>>>>>>>>>>
+      enddo  ! iloop
+c>>>>>>>>>>
+
+      call endrun (0)
+#else
+      return
+#endif
+
+      end
+c
+c ***************************** ZENORB ********************************
+c
+      subroutine zenorb (iyear, ecc, obliq, prec, vern)
+c
+c        calculates orbital parameters from trigonometric series in
+c        berger (1978) jas,35,2362-2367.
+c
+c     iyear = calendar year (eg, 1990) (supplied)
+c     ecc   = eccentricity (returned)
+c     obliq = obliquity in radians (returned)
+c     prec  = precession, ie, prograde angle from perihelion to n.h.
+c             vernal equinox, 0 to 2*pi radians (returned)
+c     vern  = 2*pi *  time from perihelion to n.h. vernal equinox
+c             / perihelion-to-perihelion year (returned)
+c
+      parameter (pi = 3.14159265358979)
+c
+      dimension oa(20), of(20), op(20)
+      dimension ea(19), ef(19), ep(19)
+      dimension pa(10), pf(10), pp(10)
+      save oa,of,op,ea,ef,ep,pa,pf,pp
+c
+      data oa/
+     *-2462.22e0, -857.32e0, -629.32e0, -414.28e0, -311.76e0,
+     *  308.94e0, -162.55e0, -116.11e0,  101.12e0,  -67.69e0,
+     *   24.91e0,   22.58e0,  -21.16e0,  -15.65e0,   15.39e0,
+     *   14.67e0,  -11.73e0,   10.27e0,    6.49e0,    5.85e0/
+c
+      data of/
+     *31.609970e0, 32.620499e0, 24.172195e0, 31.983780e0, 44.828339e0,
+     *30.973251e0, 43.668243e0, 32.246689e0, 30.599442e0, 42.681320e0,
+     *43.836456e0, 47.439438e0, 63.219955e0, 64.230484e0,  1.010530e0,
+     * 7.437771e0, 55.782181e0,  0.373813e0, 13.218362e0, 62.583237e0/
+c
+      data op/
+     *251.90e0, 280.83e0, 128.30e0, 292.72e0,  15.37e0,
+     *263.79e0, 308.42e0, 240.00e0, 222.97e0, 268.78e0,
+     *316.79e0, 319.60e0, 143.80e0, 172.73e0,  28.93e0,
+     *123.59e0,  20.20e0,  40.82e0, 123.47e0, 155.69e0/
+c
+c
+      data ea/
+     * .01860798e0, .01627522e0,-.01300660e0, .00988829e0,-.00336700e0,
+     * .00333077e0,-.00235400e0, .00140015e0, .00100700e0, .00085700e0,
+     * .00064990e0, .00059900e0, .00037800e0,-.00033700e0, .00027600e0,
+     * .00018200e0,-.00017400e0,-.00012400e0, .00001250e0/
+c
+      data ef/
+     *  4.207205e0,  7.346091e0, 17.857263e0, 17.220546e0, 16.846733e0,
+     *  5.199079e0, 18.231076e0, 26.216758e0,  6.359169e0, 16.210016e0,
+     *  3.065181e0, 16.583829e0, 18.493980e0,  6.190953e0, 18.867793e0,
+     * 17.425567e0,  6.186001e0, 18.417441e0,  0.667863e0/
+c
+      data ep/
+     *  28.62e0, 193.78e0, 308.30e0, 320.19e0, 279.37e0,
+     *  87.19e0, 349.12e0, 128.44e0, 154.14e0, 291.26e0,
+     * 114.86e0, 332.09e0, 296.41e0, 145.76e0, 337.23e0,
+     * 152.09e0, 126.83e0, 210.66e0,  72.10e0/
+c
+c
+      data pa/
+     * 7391.02e0, 2555.15e0, 2022.76e0,-1973.65e0, 1240.23e0,
+     *  953.87e0, -931.75e0,  872.38e0,  606.35e0, -496.03e0/
+c
+      data pf/
+     * 31.609970e0, 32.620499e0, 24.172195e0,  0.636717e0, 31.983780e0,
+     *  3.138886e0, 30.973251e0, 44.828339e0,  0.991874e0,  0.373813e0/
+c
+      data pp/
+     * 251.90e0, 280.83e0, 128.30e0, 348.10e0, 292.72e0,
+     * 165.16e0, 263.79e0,  15.37e0,  58.57e0,  40.82e0/
+c
+c
+      tpi = 2.*pi
+      rpd = pi/180.
+      rps = rpd/3600.
+c
+c        time in berger series is years from 1950.0 a.d.
+c        if iyear is positive, it is in "ad". if negative,
+c        it is in "bp", i.e., already relative to 1950 a.d.
+c
+      if (iyear.ge.0) then
+        time = iyear - 1950
+      else
+        time = iyear
+      endif
+c
+c        series for obliquity
+c
+      x = 0.
+      do 20 i=1,20
+        x = x + rps*oa(i) * cos (rps*of(i)*time + rpd*op(i))
+20    continue
+      obliq = rpd*23.320556 + x
+c
+c        series for ecc*sin(pie), ecc*cos(pie), where pie is perihelion
+c        position relative to fixed stars
+c
+      esp = 0.
+      ecp = 0.
+      do 30 i=1,19
+        x = rps*ef(i)*time + rpd*ep(i)
+        esp = esp + ea(i) * sin(x)
+        ecp = ecp + ea(i) * cos(x)
+30    continue
+c
+c        separate ecc and pie
+c
+      ecc = sqrt (esp*esp + ecp*ecp)
+      pie = atan2 (esp,ecp)
+c
+c        series and linear term for psi, n.h. vernal equinox position
+c        relative to fixed stars
+c
+      x = 0.
+      do 40 i=1,10
+        x = x + rps*pa(i) * sin (rps*pf(i)*time + rpd*pp(i))
+40    continue
+      psi = rps*50.439273*time + rpd*3.392506 + x
+c
+c        set prec, prograde angle from perihelion to n.h.vernal equinox.
+c        add pi radians to pie + psi since it has been subtracted by
+c        convention in berger series.
+c
+      prec = mod (pie + psi + pi, tpi)
+      if (prec.lt.0.) prec = prec + tpi
+      prec = tpi - prec
+c
+c        calculate vern, 2 * pi * time from perihelion to n.h. vernal
+c        equinox / perihelion-to-perihelion year. use eccentric
+c        anomaly e (danby, fundamentals of celestial mechanics,
+c        1962, eqs. (6.3.12) and (6.3.19).)
+c
+      zs = sin (0.5*prec) / sqrt ((1.+ecc)/(1.-ecc))
+      zc = cos (0.5*prec)
+      ze = 2. * atan2 (zs,zc)
+      vern = ze - ecc * sin(ze)
+c
+      return
+      end
+c
+c ***************************** ZENCAL ********************************
+c
+      subroutine zencal (iyear, imon, iday, isec, dmid, dt,
+     *                   ecc, obliq, prec, vern, dist, eccf, cosq, fraq,
+     *                   alatg)
+c
+c        calculates cosq(ji,jj), mean daylight cos (zenith angle),
+c        and fraq(ji,jj), daylight time fraction, during time interval
+c        dt, versus longitude for one latitude. also calculates dist,
+c        current earth-sun distance relative to the semi-major axis,
+c        and eccentricity factor eccf = 1/dist**2.
+c
+c     iyear = calendar year (eg, 1990) (supplied)
+c     imon  = month number (1 to 12) (supplied)
+c     iday  = day number (1 to 31) (supplied)
+c     isec  = seconds into current day (0 to 86400-1) (supplied)
+c     dmid  = time shift from current time to center of interval dt
+c             (seconds) (supplied)
+c     dt    = time interval (must be .le. 1 day) (seconds) (supplied)
+c     ecc   = eccentricity (supplied)
+c     obliq = obliquity (radians) (supplied)
+c     prec  = precession (prograde angle between perihelion and n.h.
+c             vernal equinox) (0 to 2*pi) (supplied)
+c     vern  = 2*pi *  time from perihelion to n.h. vernal equinox
+c             / perihelion-to-perihelion year (supplied)
+c     dist  = current earth-sun distance / semi-major axis (returned)
+c     cosq  = daylight mean cos (zenith angle) vs long,lat (returned)
+c     fraq  = fraction of dt in daylight vs long,lat (returned)
+c     alatg = latitudes (radians, cannot be pi/2 or -pi/2) (supplied)
+c
+c     local variables (t1,t2,iflag,tcosq,tlimq are arrays for vec):
+c     t1    = hour angle of interval start (0 to 2*pi, from midnight)
+c     t2    = hour angle of interval end   (0 to 2*pi, from midnight)
+c     iflag = -1 if midnight occurs during dt, = 1 if not
+c     tcosq = integrated cos(zen angle) versus hour angle (radians)
+c     tlimq = daylight time in hour angle (radians)
+c     secpd = day length (constant, approx midnight-to-midnight) (secs)
+c     ayear = perihelion-to-perihelion year (anomalistic) (days)
+c     tyear = equinox-to-equinox year (tropical) (days)
+c
+c----------------------------------------------------------------------
+#include <PARAMS.h>
+c --------------------------------------------------------------------
+      dimension
+     *  cosq(nlon,norec), fraq(nlon,norec), alatg(norec)
+      dimension
+     *  t1(nlon), t2(nlon), iflag(nlon), tcosq(nlon), timlq(nlon),
+     *  ndaypm(12)
+      parameter (pi = 3.14159265358979)
+c
+      data ndaypm /31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31/
+      data secpd, epsorb / .864e5, 1.e-7 /
+      data ayear, tyear / 365.25964, 365.24219 /
+c
+c
+      tpi = 2.*pi
+      pih = pi/2.
+      rpd = pi/180.
+c
+c        calculate time from present to n.h.vernal equinox, by computing
+c        time t from jan 1st to present, then subtracting time tve
+c        from jan 1st to vernal equinox. tve is incremented each year
+c        from 1989 by the difference between the tropical year tyear
+c        (equinox-to-equinox) and 365 days, and decremented by 1 day
+c        following each leap year. we define the calendar by setting
+c        n.h. vernal equinox at 12:00 gmt march 21, 79.5 days after
+c        00:00 gmt jan 1 (as recommended for 6k bp by pmip)
+c
+      verncal = 79.5
+c
+c        however, current model ignores leap years, so comment out the
+c        adjustments to ndaypm(2) and tve from 1989 (also see nutime.)
+c
+      ndaypm(2) = 28
+c     if (mod(iyear,4).eq.0) ndaypm(2) = 29
+c
+      n = 0
+      do 10 i = 1,imon
+        n = n + ndaypm(i)
+   10 continue
+      t = secpd*(n-ndaypm(imon) + iday-1) + isec + dmid
+      tve = verncal
+c     tve = tve + (iyear-1989)*(tyear-365.) - (iyear-1989)/4
+      t = t - secpd*tve
+c
+c        change to "time" from perihelion, expressed as
+c        2*pi * fraction of perihelion-to-perihelion year
+c
+      t = vern + tpi*t/(ayear*secpd)
+      if (t.lt.0.) t = t + tpi
+c
+c        solve for theta, angle between perihelion and current position,
+c        using newton's method for ecc anomaly e (danby, fundamentals
+c        of celestial mechanics, 1962, eqs. (6.3.12) and (6.3.19).)
+c
+      e = t
+      do 20 iloop=1,100
+        de = - (e-ecc*sin(e)-t) / (1.-ecc*cos(e))
+        if (abs(de).le.epsorb) goto 22
+        e = e + de
+   20 continue
+   22 continue
+c
+      zs = sin (0.5*e) * sqrt((1.+ecc)/(1.-ecc))
+      zc = cos (0.5*e)
+      theta = 2. * atan2 (zs,zc)
+c
+c        calculate dist (earth-sun distance / semi-major axis) and eccf
+c
+      dist = (1.-ecc*ecc) /  (1. + ecc*cos(theta))
+      eccf = 1./(dist*dist)
+c
+c        calculate b (angle between earth spin axis and earth-sun line)
+c        and cb = cos(b), sb = sin(b)
+c
+      cb = sin(theta-prec) * cos(pih-obliq)
+c     need acos to return 0 to pi for sb to have the right sign
+      b = acos(cb)
+      sb = sin(b)
+c
+c        loop over latitudes (nb: alatg cannot be pi/2 or -pi/2)
+c
+      do 100 jj=1,norec
+        cl = cos (pih-alatg(jj))
+        sl = sin (pih-alatg(jj))
+c
+c          set rise and set, hour angles (between 0 and 2*pi, from
+c          local midnight) of sunrise and sunset
+c
+        if (cl*cb .gt. sl*sb)  then
+c         polar day
+          x = pi
+        else if (cl*cb .lt. -sl*sb)  then
+c         polar night
+          x = 0.
+        else
+c         sunrise and sunset occur
+c         (need acos to return 0 to pi)
+          x = acos(-cl*cb/(sl*sb))
+        endif
+        rise = pi - x
+        set  = pi + x
+c
+c          set 24-hr total cos(zen) tcosq24 and daylight time timlq24
+c
+        tcosq24 = 2.* (cl*cb*x + sl*sb*sin(x))
+        timlq24 = set - rise
+c
+c          for each long, set hour angles (0 to 2*pi, from local
+c          midnight) of t1 and t2, the start and end of interval dt.
+c          if gmt time is used, longitude 0 should correspond to the
+c          greenwich meridian. note that ccm longitude interval # 1
+c          has edge on greenwich.
+c
+        do 200 ji=1,nlon
+          alon = (ji-.5) * tpi / float(nlon)
+          t1(ji) = alon + (isec + dmid - 0.5*dt)*tpi/secpd
+          t2(ji) = t1(ji) + dt*tpi/secpd
+          t1(ji) = mod (t1(ji)+tpi, tpi)
+          t2(ji) = mod (t2(ji)+tpi, tpi)
+  200   continue
+c
+c          flag longitudes for which local midnight occurs during dt,
+c          and if so switch t1 and t2. then will do calcs below for
+c          24 hrs - dt, and convert back at end. first test for daily
+c          mean case (dt = 24 hrs) and handle similarly.
+c
+        do 300 ji=1,nlon
+          iflag(ji) = 1
+          x = abs ( mod (t2(ji)-t1(ji), tpi) )
+          if (x.lt.epsorb .or. abs(x-tpi).lt.epsorb) then
+c           daily mean (dt = 24hrs)
+            iflag(ji) = -1
+            t2(ji) = t1(ji)
+          else if (t1(ji). gt. t2(ji)) then
+c           midnight occurs during dt (and not daily mean)
+            iflag(ji) = -1
+            x = t1(ji)
+            t1(ji) = t2(ji)
+            t2(ji) = x
+          endif
+  300   continue
+c
+c          constrain integ limits a1, a2 to be between rise and set,
+c          and integrate to get total cos(zen) tcosq and daylight time
+c          timlq. subtract pi from a1,a2 to get in range -pi to pi.
+c
+        do 400 ji=1,nlon
+          a1 = max (rise, min (set, t1(ji))) - pi
+          a2 = max (rise, min (set, t2(ji))) - pi
+          tcosq(ji) = cl*cb*(a2-a1) + sl*sb*(sin(a2)-sin(a1))
+          timlq(ji) = a2 - a1
+  400   continue
+c
+c          if local midnight occurs within dt, subtract from 24-hr tots
+c
+        do 500 ji=1,nlon
+          if (iflag(ji).eq.-1) then
+            tcosq(ji) = tcosq24 - tcosq(ji)
+            timlq(ji) = timlq24 - timlq(ji)
+          endif
+  500   continue
+c
+c          set avg daylight cos(zen) cosq and daylight fraction fraq
+c
+        do 600 ji=1,nlon
+          if (timlq(ji).gt.0.) then
+            cosq(ji,jj) = tcosq(ji) / timlq(ji)
+          else
+            cosq(ji,jj) = 0.
+          endif
+          fraq(ji,jj) = timlq(ji) / (tpi*dt/secpd)
+  600   continue
+c
+c       if (abs(alatg(jj)/rpd - 2.) .lt. 2.) then
+c    c     write(6,900)
+c    *       iyear, imon, iday, isec, dmid, dt,
+c    *       ecc, obliq/rpd, prec/rpd, vern/rpd, alatg(jj)/rpd, nlon,
+c    *       t/rpd, e/rpd, theta/rpd, dist
+c900       format(/' radzen:'
+c    *       /' iyear imon iday isec dmid dt'
+c    *       /' ecc obliq prec vern alatg nlon'
+c    *       /' t e theta dist'
+c    *       /1x,4i20,2f20.10 / 1x,5f20.10,i20 / 1x,4f20.10/)
+c    c     write(6,902) (cosq(ji,jj),ji=1,nlon),(fraq(ji,jj),ji=1,nlon)
+c902       format(' cosq:', 2(/1x,24f5.2) / ' fraq:',2(/1x,24f5.2))
+c       endif
+c
+  100 continue
+c
+      return
+      end
+c
+c ***************************** RADOZ1 *********************************
+c
+c=======================
+#if defined (STANDALONE)
+c=======================
+
+      subroutine radoz1 (o3vmr, o3fac, showmaps)
+#include <PARAMS.h>
+      dimension o3vmr (nlon,norec,nlev)
+      logical showmaps
+      do jk=1,nlev
+        do jj=1,norec
+          do ji=1,nlon
+            o3vmr(ji,jj,jk) = 1000. * 1.e-9 * o3fac
+          enddo
+        enddo
+      enddo
+      return
+      end
+c====
+#else
+c====
+
+      subroutine radoz1 (o3vmr, o3fac, showmaps)
+c
+cl            radoz1 reads a file containing min-month ozone volume 
+cl            mixing ratios as a fnct of latitude and pressure, 
+cl            interpolates in time between mid months, and interpolates
+cl            vertically to model levels.  
+cl
+cl            to obtain the integrals to the model levels,
+cl            radoz2 will be called (from within the radiation code)
+c
+#include <PARAMS.h>
+#include <COMDYR.h>
+#include <COMLUN.h>
+#include <COMMAP.h>
+#include <COMTIM.h>
+c only for cplos, showmaps:
+#include <RADOZP.h>
+c
+      dimension o3vmr (nlon,norec,nlev)
+      logical showmaps
+
+      parameter (koz=23, nmon=12)
+      dimension
+     *   ozday(0:nmon+1),
+     *   ozmix(norec,koz),       ozmixall(norec,koz,nmon),
+     *   ozmixread (koz,norec),  poz(koz),           pin(koz+1)
+
+c     days of year at which the monthly mean ozone values apply:
+      data (ozday(i),i=0,13)
+     *  / -15.,  16.,  45.,  75., 105., 136., 166.,
+     *    197., 228., 258., 289., 319., 350., 381. /
+
+c     for vertical interpolation to gcm grid:
+      dimension kpoz(nlev,2), wpoz(nlev)
+
+c     only for showmaps:
+      dimension zpoz (norec)
+
+      logical first, firstshow
+      data first, firstshow /.true., .true./
+      save first, firstshow, ozday, ozmixall, kpoz, wpoz
+
+c     for iguana, rumen, with T10, else get blowup, not saving kpoz:  
+c     if (first) open (199,file='/dev/null',status='old')
+c     write (199,*) '777 kpoz(1,1)=',kpoz(1,1)
+
+c        On first call, read in previous month's data,
+c        reversing latitudes from file's n-to-s to model's s-to-n.
+
+c~~~~~~~~~~~~~~~~~~~~
+      if (first) then
+c~~~~~~~~~~~~~~~~~~~~
+c
+        call findiu (nozone, loc)
+        write(nout,10) locname(loc)(1:lenchr(locname(loc)))
+   10   format(/' Reading agcm ozone mixing-ratio data file'/4x,a)
+        call openf (nozone, locname(loc), ' ', 0, 0)
+        do 30 imon=1,nmon
+          call readozone (nozone, ozmixread, poz, koz, norec,
+     *                    'OZONE', imon)
+c         change units, switch dimensions
+          do 32 j=1,norec
+            do 34 k=1,koz
+              ozmixall(j,k,imon) = 1.e-9 * ozmixread(k,j)
+   34       continue
+   32     continue
+   30   continue
+        call closef (nozone)
+c
+c          define the interface pressures
+c
+        pin(1) = 0.0
+        do 60 k=2,koz
+          pin(k) = 0.5 * (poz(k-1)+poz(k))
+   60   continue
+        pin(koz+1) = poz(koz)
+
+c          Set vertical interpolation indices into ozone data grid 
+
+        do k=1,nlev
+          zp = 1.01325e5*sig(k)
+          if (zp.le.poz(1)) then  
+            kpoz(k,1) = 1
+            kpoz(k,2) = 1
+            wpoz(k) = 1.
+          else if (zp.ge.poz(koz)) then
+            kpoz(k,1) = koz
+            kpoz(k,2) = koz
+            wpoz(k) = 1.
+          else 
+            do ko = 2,koz
+              if (zp.le.poz(ko)) then
+                kpoz(k,1) = ko-1
+                kpoz(k,2) = ko
+                wpoz(k) = (zp-poz(ko-1)) / (poz(ko)-poz(ko-1)) 
+                goto 20
+              endif
+            enddo
+   20       continue
+          endif
+        enddo
+c
+        first = .false.
+c~~~~~~~~~~
+      endif
+c~~~~~~~~~~
+
+c        find calday position in ozday list
+
+      do inext=1,nmon+1
+         if (calday.le.ozday(inext)) go to 100
+      enddo
+      write (nout,*) '*** radoz1 date error: calday=', calday
+      call endrun (-1)
+  100 continue
+      iprev = inext - 1
+
+c         linear interpolation of mixing ratio in time
+
+      zw = (calday-ozday(iprev)) / (ozday(inext)-ozday(iprev))
+      ip = mod (iprev-1+nmon, nmon) + 1
+      in = mod (inext-1+nmon, nmon) + 1
+      do k=1,koz
+        do j=1,norec
+          ozmix(j,k) = (1.-zw)*ozmixall(j,k,ip) + zw*ozmixall(j,k,in)
+        enddo
+      enddo
+
+c        Interpolate to gcm levels 
+
+      do jk=1,nlev  
+        k1 = kpoz(jk,1)
+        k2 = kpoz(jk,2)
+        do jj=1,norec
+          zoz = (1.-wpoz(jk))*ozmix(jj,k1) + wpoz(jk)*ozmix(jj,k2) 
+          do ji=1,nlon
+            o3vmr(ji,jj,jk) = zoz * o3fac   
+          enddo
+        enddo
+      enddo
+
+c>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+      if (firstshow .and. showmaps) then
+c>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+c          print out level-vs-latitude ozone volume ratios if requested,
+c          and compute and print column amounts, and global amount
+
+        incz = (norec-1)/40 + 1
+        write (nout,900) char(12)
+  900   format(/a1,' Ozone volume mixing ratios',
+     *             ' (10^7*ppv, first timestep):')
+        write(nout,902) (nint(alatg(j)*180./3.1415927), j=norec,1,-incz)
+  902   format(/'latitude :',40i3)
+        write(nout,904)
+  904   format(/'   sigma')
+
+        io = 1
+        do k=1,nlev
+          write(nout,906)
+     *      sig(k), (nint(1.e7*o3vmr(io,j,k)), j=norec,1,-incz)
+  906     format(f8.3,' :',40i3)
+        enddo
+
+        ztotoz = 0.
+        ztotw  = 0.
+        do j=1,norec
+          zpoz(j) = 0.
+          do k=1,nlev
+            zpoz(j) = zpoz(j) + 1.01325e5*dsigma(k)*cplos*o3vmr(io,j,k)
+          enddo
+          ztotoz = ztotoz + zpoz(j)*w(j)
+          ztotw  = ztotw  +         w(j)
+        enddo
+
+        write(nout,920) (nint(100.*zpoz(j)), j=norec,1,-incz)
+        write(nout,924) ztotoz/ztotw
+  920   format(/'100cm stp:',40i3)
+  924   format( ' glob,cm :',f6.3)
+
+        firstshow = .false.
+c>>>>>>>>>>
+      endif
+c>>>>>>>>>>
+
+      return
+      end
+c=====
+#endif
+c=====
+c
+c ***************************** READOZONE *****************************
+c
+c=========================
+#if ! defined (STANDALONE)
+c=========================
+
+      subroutine readozone (iu, arr, alon, mlon, mlat, ckey, inum)
+c
+c        slightly different version of readdata for ozone data files.
+c        differences are:
+c        * alon (actually the pressure levels in Pa) is read in
+c        * No icode choice
+c        * data format is i6 (not i5)
+c        * no shifting of "longitudes" (levels) for dateline-greenwich
+c
+c        if file has more than one field, each set of data records is
+c        preceded by the same 4 records as above. each group is
+c        separated by an extra blank line, between the last data record
+c        of the preceding field and the header record of the next field.
+c
+c        iu    = unit number
+c        arr   = data array (returned)
+c        alon  = longitude  or level grid array (returned)
+c        mlon  = longitude dimension
+c        mlat  = latitude  dimension
+c        ckey  = expected 8-byte label in word # 1, rec # 1
+c        inum  = field number for this file
+c
+c ---------------------------------------------------------------------
+#include <PARAMS.h>
+c ---------------------------------------------------------------------
+#include <COMLUN.h>
+c ---------------------------------------------------------------------
+      dimension arr(mlon,mlat), alon(mlon)
+      character ckey*(*)
+      character ckeyz*8, comment*100
+c ---------------------------------------------------------------------
+c
+c        find index in program's file list (just for messages)
+c
+      call findiu (iu, loc)
+c
+c        initialize record number (just for error messages)
+c
+      irec = (inum-1)*(4+mlat) + max(inum-2,0)
+c
+c        if past first field, skip blank line separator
+c
+      if (inum.gt.1) then
+        irec = irec + 1
+        read(iu, *, err=900, iostat=ios)
+      endif
+c
+c        read header record
+c
+      irec = irec + 1
+      read(iu, 10, err=900, iostat=ios) ckeyz, mlonz, mlatz, comment
+   10 format(a8,2i8,8x,a)
+      if (ckeyz.ne.ckey .or. mlonz.ne.mlon .or. mlatz.ne.mlat) then
+         write(nout,12) locname(loc)(1:lenchr(locname(loc))),
+     *                  comment(1:lenchr(comment)),
+#if defined (sun) || defined (linux)
+     *                  ckeyz,mlonz,mlatz, ckey,mlon,mlat
+#else
+     *                  ckeyz,mlonz,mlatz, ckey//'        ',mlon,mlat
+#endif
+
+   12    format(/' *** Fatal error.',
+     *           ' Incorrect attributes for data file ',a
+     *          /'     file comment                        = ',a,
+     *          /'     file     label, longitude, latitude = ',a8, 2i6
+     *          /'     expected label, longitude, latitude = ',a8, 2i6/)
+         call endrun (-1)
+      else
+         write(nout,14) comment(1:lenchr(comment)), mlonz, mlatz
+   14    format('    file comment   : ',a
+     *         /'    file resolution:',2i6)
+      endif
+c
+c        skip 3 records (blank, longitude grid, blank)
+c        *** except read "longitudes" (actually ozone pressure levels)
+c
+      irec = irec + 1
+      read(iu,  *, err=900, iostat=ios)
+      irec = irec + 1
+      read(iu,152, err=900, iostat=ios) (alon(i),i=1,mlon)
+      irec = irec + 1
+      read(iu,  *, err=900, iostat=ios)
+c
+c         read "f6.0-format" data records
+c
+      do 150 j=mlat,1,-1
+        irec = irec + 1
+        read (iu,152,err=900,iostat=ios) (arr(i,j),i=1,mlon)
+  152   format(5x,3x,360f6.0)
+  150 continue
+c
+      return
+c
+c        fatal errors
+c
+  900 write(nout,902) locname(loc)(1:lenchr(locname(loc))),
+     *                comment, irec, ios
+  902 format(/' *** Error reading data file ',a
+     *       /'     file comment = ',a
+     *       /'     record number=',i6
+     *       /'     iostat code  =',i6/)
+      call endrun (-1)
+c
+      end
+
+c=====
+#endif
+c=====
+c
+c**************************** RADCTL_CCM3 ******************************
+c
+      subroutine radctl_ccm3
+     $                  (jslc    ,clat    ,coslat  ,oro     ,ts      ,
+     $                   pmid    ,pint    ,pmln    ,piln    ,t       ,
+     $                   h2ommr  ,rh      , cld    ,effcld  ,clwp    ,
+     $                   rel     ,rei     ,fice    ,   
+     $                   o3vmr   ,coszrs  ,fraq    ,eccf    ,scon    ,
+     $                   albs    ,albsd   ,
+     $                   albl    ,albld   ,
+
+     $                   qrs, fsns, fsnt, fsnsc, fsntc, solin,
+     $                   sols, soll, solsd, solld,
+
+     $                   qrl, flwds, flns, flnt, flnsc, flntc,
+
+     $                   dosw, dolw, dolwa, ifreqclr, ggunif,
+     $                   ch4ppv, n2oppv, f11ppv, f12ppv,
+     $                   aertauvis, mxaerl, ssacld
+     $                  )
+C
+C-----------------------------------------------------------------------
+C
+C Driver for radiation computation.
+C
+C Radiation uses cgs units, so conversions must be done from
+C model fields to radiation fields.
+C
+C Calling sequence:
+C
+C     radinp      Converts units of model fields and computes ozone
+C                 mixing ratio for solar scheme
+C
+C     radcsw      Performs solar computation
+C       radalb    Computes surface albedos
+C       radded    Computes delta-Eddington solution
+C       radclr    Computes diagnostic clear sky fluxes
+C
+C     radclw      Performs longwave computation
+C
+C       radtpl    Computes path quantities
+C       radems    Computes emissivity
+C       radabs    Computes absorptivity
+C
+C---------------------------Code history--------------------------------
+C
+C Original version:  CCM1
+C Standardized:      J. Rosinski, June 1992
+C Reviewed:          J. Kiehl, B. Briegleb, August 1992
+C
+C Modified:          B. Briegleb, March 1995 to add aerosol
+C                    to shortwave code
+C
+C-----------------------------------------------------------------------
+      implicit none
+C------------------------------Parameters-------------------------------
+#include <RADSIZE.h>
+C------------------------------Commons----------------------------------
+#include <RADAER.h>
+C
+C------------------------------Arguments--------------------------------
+C
+C Input arguments
+C
+      integer 
+     $     jslc                 ! latitude-row index
+      real 
+     $     clat(plon),         ! current latitude(radians)
+     $     coslat(plon),       ! cosine latitude
+     $     oro(plon),          ! land=1, ocean/ice sheet=0 (fraction)
+     $     ts(plon),           ! Surface (skin) temperature
+
+     $     pmid(plon,plev),    ! Model level pressures
+     $     pint(plon,plevp),   ! Model interface pressures
+     $     pmln(plon,plev),    ! Natural log of pmid
+     $     piln(plon,plevp),   ! Natural log of pint
+     $     t(plon,plev),       ! Model level temperatures
+
+     $     h2ommr(plon,plev),  ! Model level specific humidity
+     $     rh(plon,plev),      ! Model level relative humidity
+     $     cld(plon,plevp),    ! Fractional cloud cover
+     $     effcld(plon,plevp), ! Effective fractional cloud cover
+     $     clwp(plon,plev),    ! Cloud liquid water path
+
+     $     rel(plon,plev),     ! liquid cloud particle effective radius
+     $     rei(plon,plev),     ! ice effective drop size (microns)
+     $     fice(plon,plev),    ! fractional ice content within cloud
+
+     $     o3vmr(plon,plev),   ! Ozone volume mixing ratio
+     $     coszrs(plon),       ! Cosine solar zenith angle
+     $     fraq(plon),         ! time-fraction of daylight in timestep
+     $     eccf,                ! Earth/sun distance factor
+     $     scon,                ! solar constant (erg/cm2/s)
+
+     $     albs(plon),         ! sfc albedo solar vis direct 
+     $     albsd(plon),        ! sfc albedo solar vis diffuse 
+     $     albl(plon),         ! sfc albedo solar nir direct 
+     $     albld(plon)         ! sfc albedo solar nir diffuse 
+
+      logical dosw, dolw, dolwa, ifreqclr, ggunif
+      real ch4ppv, n2oppv, f11ppv, f12ppv,  aertauvis, ssacld(2)
+      integer mxaerl
+C
+C Output solar arguments
+C
+      real  
+     $     qrs(plon,0:plevp),  ! Solar dwn-up flx at interfaces
+     $     fsns(plon),         ! Surface absorbed solar flux
+     $     fsnt(plon),         ! tot column (TOA) abs solar flux
+     $     fsnsc(plon),        ! Clear sky surface abs solar flux
+     $     fsntc(plon),        ! Clear sky tot col (TOA) abs solar flx
+     $     solin(plon),        ! Solar incident flux
+
+     $     sols(plon),         ! Downward solar rad at sfc (sw direct)
+     $     soll(plon),         ! Downward solar rad at sfc (lw direct)
+     $     solsd(plon),        ! Downward solar rad at sfc (sw diffuse)
+     $     solld(plon),        ! Downward solar rad at sfc (lw diffuse)
+C
+C Output longwave arguments
+C
+     $     qrl(plon,plevp),    ! Longwave dwn-up flx at interfaces
+     $     flwds(plon),        ! Surface down longwave flux
+     $     flns(plon),         ! Srf longwave cooling (up-down) flux
+     $     flnt(plon),         ! Net outgoing lw flux at model top
+     $     flnsc(plon),        ! Clear sky lw flux at srf (up-down)
+     $     flntc(plon)         ! Clear sky lw flux at model top
+
+C
+C---------------------------Local variables-----------------------------
+C
+      integer i,k               ! index
+
+CEES next 3 added, they are calculated in radcsw 
+cdp   (for output, not currently used)
+      real fsnirt(plon)      ! Near-IR flux absorbed at toa
+      real fsnrtc(plon)      ! Clear sky near-IR flux absorbed at toa
+      real fsnirtsq(plon)    ! Near-IR flux absorbed at toa >= 0.7 mu
+      real fsds(plon)        ! Flux Shortwave Downwelling Surface
+
+      real
+     $     pbr(plon,plev),    ! Model mid-level pressures (dyn/cm2)
+     $     pnm(plon,plevp),   ! Model interface pressures (dyn/cm2)
+     $     o3mmr(plon,plev),  ! Ozone mass mixing ratio
+     $     plco2(plon,plevp), ! Prs weighted CO2 path
+     $     plh2o(plon,plevp), ! Prs weighted H2O path
+     $     tclrsf(plon,plevp),! Total clr sky fraction, level to space
+     $     n2o(plon,plev),     ! nitrous oxide mass mixing ratio
+     $     ch4(plon,plev),     ! methane mass mixing ratio
+     $     cfc11(plon,plev),   ! cfc11 mass mixing ratio
+     $     cfc12(plon,plev)   ! cfc12 mass mixing ratio
+C
+C Declare local arrays to which model input arrays are interpolated here
+C Current default is none since radiation grid = model grid.
+C
+C Externals.
+C
+c      external radinp,  ! Computes latitude dependent radiation input
+c     $         aermix,  ! Specifies aerosol mass mixing ratio
+c     $         radcsw,  ! Computes solar radiation
+c     $         radozn,  ! Computes ozone volume mixing ratio
+c     $         radclw,  ! Computes longwave radiation
+c     $         torgrid, ! Interpolate model variables to radiation grid
+c     $         fmrgrid  ! Interpolate radiation variables to model grid
+C-----------------------------------------------------------------------
+C
+C Set latitude dependent radiation input
+C
+      call radinp(pmid    ,pint    ,h2ommr  ,cld     ,o3vmr   ,
+     $            pbr     ,pnm     ,plco2   ,plh2o   ,tclrsf  ,
+     $            o3mmr   )
+C
+C Solar radiation computation
+C
+c>>>>>>>>>>>>>>>>>>>
+      if (dosw) then
+c>>>>>>>>>>>>>>>>>>>
+C
+C Specify aerosol mass mixing ratio
+C
+         call aermix(pnm     ,rh      ,oro     ,aertauvis ,mxaerl)
+C
+         call radcsw(jslc    ,pnm     ,h2ommr  ,o3mmr   ,rh      ,
+     $               cld     ,clwp    ,rel     ,rei     ,fice    ,
+     $               eccf    ,scon    ,albs    ,albsd   ,albl    ,
+     $               albld   ,solin   ,qrs     ,fsns    ,fsnt    ,
+     $               fsds    ,fsnsc   ,fsntc   ,sols    ,soll    ,
+     $               solsd   ,solld   ,fsnirt  ,fsnrtc  ,fsnirtsq,
+     $               coszrs  ,fraq    ,
+     $               ssacld  ,ifreqclr
+     $               )
+C
+C Convert units of shortwave fields from CGS to MKS
+C
+         do k=0,plevp
+           do i=1,plon
+             qrs(i,k) = qrs(i,k)*1.e-3
+           enddo
+         enddo
+         do i=1,plon
+            solin(i) = solin(i)*1.e-3
+            fsns(i)  = fsns(i) *1.e-3
+            fsnt(i)  = fsnt(i) *1.e-3
+            fsds(i)  = fsds(i)*1.e-3
+            fsnsc(i) = fsnsc(i)*1.e-3
+            fsntc(i) = fsntc(i)*1.e-3
+c           already done in radcsw for sols, soll, solsd, solld
+c           sols(i) = sols(i)*1.e-3
+c           soll(i) = soll(i)*1.e-3
+c           solsd(i) = solsd(i)*1.e-3
+c           solld(i) = solld(i)*1.e-3
+            fsnirt(i)= fsnirt(i)*1.e-3
+            fsnrtc(i)= fsnrtc(i)*1.e-3
+            fsnirtsq(i)= fsnirtsq(i)*1.e-3
+         end do
+c>>>>>>>>>>>
+       endif
+c>>>>>>>>>>>
+C
+C Longwave radiation computation
+C
+c<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+      if (dolw .or. dolwa) then
+c<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+c
+c Specify trace gas mixing ratios
+c
+         call trcmix (pmid, clat, coslat, n2o, ch4, cfc11, cfc12,
+     $                ch4ppv, n2oppv, f11ppv, f12ppv, ggunif)
+c
+         call radclw(jslc,    ts   ,t    ,h2ommr  ,o3vmr   ,
+     $               pbr     ,pnm     ,pmln    ,piln    ,plco2   ,
+     $               plh2o   ,n2o     ,ch4     ,cfc11   ,cfc12   ,
+     $               effcld  ,tclrsf  ,qrl     ,flns    ,flnt    ,
+     $               flnsc   ,flntc   ,flwds   ,
+     $               dolwa    )
+C
+C Convert units of longwave fields from CGS to MKS
+C
+         do k=1,plevp
+           do i=1,plon
+             qrl(i,k) = qrl(i,k)*1.e-3
+           enddo
+         enddo
+         do i=1,plon
+            flns(i)  = flns(i)*1.e-3
+            flnt(i)  = flnt(i)*1.e-3
+            flnsc(i) = flnsc(i)*1.e-3
+            flntc(i) = flntc(i)*1.e-3
+            flwds(i) = flwds(i)*1.e-3
+         end do
+c<<<<<<<<<<
+      endif
+c<<<<<<<<<<
+
+      return
+      end
+c
+c***************************** RADINI **********************************
+c
+      subroutine radini (gravx, cpairx, epsilox, stebolx, co2ppv, o2ppm)
+C-----------------------------------------------------------------------
+C
+C Initialize various constants for radiation scheme; note that
+C the radiation scheme uses cgs units.
+C
+C---------------------------Code history--------------------------------
+C
+C Original version:  CCM1
+C Standardized:      J. Rosinski, June 1992
+C Reviewed:          J. Kiehl, B. Briegleb, August 1992
+C
+C-----------------------------------------------------------------------
+c
+c $Id: radini.F,v 1.2 1995/02/17 21:28:44 jhack Exp $
+c $Author: jhack $
+c
+      implicit none
+c
+C------------------------------Parameters-------------------------------
+c
+#include <RADSIZE.h>
+C
+C------------------------------Commons----------------------------------
+#include <RADOZP.h>
+#include <RADCAE.h>
+#include <RADCON.h>
+C
+C------------------------------Arguments--------------------------------
+C
+C Input arguments
+C
+      real  gravx,     ! Acceleration of gravity (MKS)
+     $     cpairx,    ! Specific heat of dry air (MKS)
+     $     epsilox,   ! Ratio of mol. wght of H2O to dry air
+     $     stebolx,   ! Stefan-Boltzmann's constant (MKS)
+     $     co2ppv,    ! co2 volume mixing ratio (from gcm) 
+     $     o2ppm      ! o2 mass mixing ratio (from gcm) 
+C
+C---------------------------Local variables-----------------------------
+C
+      integer iband   ! H2O band index
+      real  v0,        ! Volume of a gas at stp (m**3/kmol)
+     $     p0,        ! Standard pressure (pascals)
+     $     amd,       ! Effective molecular weight of dry air (kg/kmol)
+     $     goz        ! Acceleration of gravity (m/s**2)
+C
+C-----------------------------------------------------------------------
+C
+C Set general radiation consts; convert to cgs units where appropriate:
+C
+      gravit  =  100.*gravx
+      rga     =  1./gravit
+      cpair   =  1.e4*cpairx
+      epsilo  =  epsilox
+      sslp    =  1.01325e6
+      stebol  =  1.e3*stebolx
+      rgsslp  =  0.5/(gravit*sslp)
+c     *ppv is volume mixing ratio, passed from gcm (dp 2/06)
+c     IPCC values commented, 1991-1995 and 1961-1965
+      co2vmr  =  co2ppv
+      o2mmr   =  o2ppm
+
+      dpfo3   =  2.5e-3
+      dpfco2  =  5.0e-3
+C
+C Coefficients for h2o emissivity and absorptivity.
+C
+      do iband=1,4
+         c1(iband) = coefe(3,iband)/coefe(2,iband)
+         c2(iband) = coefb(3,iband)/coefb(2,iband)
+         c3(iband) = coefb(4,iband)/coefb(3,iband)
+         c4(iband) = coefd(3,iband)/coefd(2,iband)
+         c5(iband) = coefd(4,iband)/coefd(3,iband)
+         c6(iband) = coefa(3,iband)/coefa(2,iband)
+         c7(iband) = coefc(3,iband)/coefc(2,iband)
+      end do
+      c8   = coeff(3,1)/coeff(2,1)
+      c9   = coeff(3,2)/coeff(2,2)
+      c10  = coeff(4,1)/coeff(3,1)
+      c11  = coeff(4,2)/coeff(3,2)
+      c12  = coeff(5,1)/coeff(4,1)
+      c13  = coeff(5,2)/coeff(4,2)
+      c14  = coeff(6,1)/coeff(5,1)
+      c15  = coeff(6,2)/coeff(5,2)
+      c16  = coefj(3,1)/coefj(2,1)
+      c17  = coefk(3,1)/coefk(2,1)
+      c18  = coefi(3,1)/coefi(2,1)
+      c19  = coefi(3,2)/coefi(2,2)
+      c20  = coefi(4,1)/coefi(3,1)
+      c21  = coefi(4,2)/coefi(3,2)
+      c22  = coefi(5,1)/coefi(4,1)
+      c23  = coefi(5,2)/coefi(4,2)
+      c24  = coefi(6,1)/coefi(5,1)
+      c25  = coefi(6,2)/coefi(5,2)
+      c26  = coefj(3,2)/coefj(2,2)
+      c27  = coefk(3,2)/coefk(2,2)
+      c28  = .5
+      c29  = .002053
+      c30  = .1
+      c31  = 3.0e-5
+      cfa1 = .61
+C
+C Initialize further longwave constants referring to far wing
+C correction; R&D refers to:
+C
+C            Ramanathan, V. and  P.Downey, 1986: A Nonisothermal
+C            Emissivity and Absorptivity Formulation for Water Vapor
+C            Journal of Geophysical Research, vol. 91., D8, pp 8649-8666
+C
+      fwcoef = .1           ! See eq(33) R&D
+      fwc1   = .30          ! See eq(33) R&D
+      fwc2   = 4.5          ! See eq(33) and eq(34) in R&D
+      fc1    = 2.6          ! See eq(34) R&D
+C
+C Initialize ozone data.
+C
+      v0  = 22.4136         ! Volume of a gas at stp (m**3/kmol)
+      p0  = 0.1*sslp        ! Standard pressure (pascals)
+      amd = 28.9644         ! Molecular weight of dry air (kg/kmol)
+      goz = gravx           ! Acceleration of gravity (m/s**2)
+C
+C Constants for ozone path integrals (multiplication by 100 for unit
+C conversion to cgs from mks):
+C
+      cplos = v0/(amd*goz)       *100.0
+      cplol = v0/(amd*goz*p0)*0.5*100.0
+C
+      return
+      end
+c
+c***************************** RADINP **********************************
+c
+      subroutine radinp(pmid    ,pint    ,h2ommr  ,cld     ,o3vmr   ,
+     $                  pmidrd  ,pintrd  ,plco2   ,plh2o   ,tclrsf  ,
+     $                  o3mmr   )
+C-----------------------------------------------------------------------
+C
+C Set latitude and time dependent arrays for input to solar
+C and longwave radiation.
+C
+C Convert model pressures to cgs, compute path length arrays needed for the
+C longwave radiation, and compute ozone mixing ratio, needed for the solar
+C radiation.
+C
+C---------------------------Code history--------------------------------
+C
+C Original version:  CCM1
+C Standardized:      J. Rosinski, June 1992
+C Reviewed:          J. Kiehl, B. Briegleb, August 1992
+C
+C-----------------------------------------------------------------------
+c
+c $Id: radinp.F,v 1.1.1.1 1995/02/09 23:27:02 ccm2 Exp $
+c $Author: ccm2 $
+c
+c
+c $Id: implicit.h,v 1.1.1.1 1995/02/09 23:26:52 ccm2 Exp $
+c $Author: ccm2 $
+c
+      implicit none
+c
+C------------------------------Parameters-------------------------------
+c
+#include <RADSIZE.h>
+C
+C------------------------------Commons----------------------------------
+#include <RADCON.h>
+C------------------------------Arguments--------------------------------
+C
+C Input arguments
+C
+      real  pmid(plon,plev),   ! Pressure at model mid-levels (pascals)
+     $     pint(plon,plevp),  ! Pressure at model interfaces (pascals)
+     $     h2ommr(plon,plev), ! H2o mass mixing ratio
+     $     cld(plon,plevp),   ! Fractional cloud cover
+     $     o3vmr(plon,plev)   ! ozone volume mixing ratio
+C
+C Output arguments
+C
+      real  pmidrd(plon,plev), ! Pressure at mid-levels (dynes/cm*2)
+     $     pintrd(plon,plevp),! Pressure at interfaces (dynes/cm*2)
+     $     plco2(plon,plevp), ! Vert. pth lngth of co2 (prs-weighted)
+     $     plh2o(plon,plevp), ! Vert. pth lngth h2o vap.(prs-weighted)
+     $     tclrsf(plon,plevp) ! Product of clr-sky fractions from top
+C                              ! of atmosphere to level.
+      real  
+     $     o3mmr(plon,plev)   ! Ozone mass mixing ratio
+C
+C---------------------------Local variables-----------------------------
+C
+      integer i,    ! Longitude loop index
+     $        k     ! Vertical loop index
+      real 
+     $     p0 ,     ! Standard pressure (dynes/cm**2)
+     $     amd,     ! Effective molecular weight of dry air (g/mol)
+     $     amo,     ! Molecular weight of ozone (g/mol)
+     $     amco2,   ! Molecular weight of co2   (g/mol)
+     $     cpwpl,   ! Const in co2 mixing ratio to path length conversn
+     $     vmmr     ! Ozone volume mixing ratio
+      save     p0   ,amd   ,amo  ,amco2
+C
+      data p0    /  1.01325e6 /
+      data amd   /  28.9644   /
+      data amo   /  48.0000   /
+      data amco2 /  44.0000   /
+C
+C-----------------------------------------------------------------------
+C
+C Convert pressure from pascals to dynes/cm2
+C
+      do k=1,plev
+         do i=1,plon
+            pmidrd(i,k) = pmid(i,k)*10.0
+            pintrd(i,k) = pint(i,k)*10.0
+         end do
+      end do
+      do i=1,plon
+         pintrd(i,plevp) = pint(i,plevp)*10.0
+      end do
+C
+C Compute path quantities used in the longwave radiation:
+C
+      vmmr  = amco2/amd
+      cpwpl = vmmr*0.5/(gravit*p0)
+      do i=1,plon
+         plh2o(i,1)  = rgsslp*h2ommr(i,1)*pintrd(i,1)*pintrd(i,1)
+         plco2(i,1)  = co2vmr*cpwpl*pintrd(i,1)*pintrd(i,1)
+         tclrsf(i,1) = 1.
+      end do
+      do k=1,plev
+         do i=1,plon
+            plh2o(i,k+1)  = plh2o(i,k) + rgsslp*
+     $             (pintrd(i,k+1)**2 - pintrd(i,k)**2)*h2ommr(i,k)
+            plco2(i,k+1)  = co2vmr*cpwpl*pintrd(i,k+1)**2
+            tclrsf(i,k+1) = tclrsf(i,k)*(1.-cld(i,k+1))
+         end do
+      end do
+C
+C Convert ozone volume mixing ratio to mass mixing ratio:
+C
+      vmmr = amo/amd
+      do k=1,plev
+         do i=1,plon
+            o3mmr(i,k) = vmmr*o3vmr(i,k)
+         end do
+      end do
+C
+      return
+      end
+c
+c***************************** TRCMIX **********************************
+c
+      subroutine trcmix (pmid, clat, coslat, n2o, ch4, cfc11, cfc12,
+     $                   ch4ppv, n2oppv, f11ppv, f12ppv, ggunif)
+c-------------------------------------------------------------
+c Specify zonal mean mass mixing ratios of CH4, N2O, CFC11 and
+c CFC12
+c          Code: J.T.Kiehl November 21, 1994
+C------------------------------Parameters-------------------------------
+c
+c $Id: trcmix.F,v 1.2 1995/02/17 21:28:58 jhack Exp $
+c $Author: jhack $
+c
+c
+c $Id: implicit.h,v 1.1.1.1 1995/02/09 23:26:52 ccm2 Exp $
+c $Author: ccm2 $
+c
+      implicit none
+c
+#include <RADSIZE.h>
+C
+c------------------------------input------------------------------------
+      real  pmid(plon,plev),       ! model pressures
+     $     clat(plon),                   ! current latitude in radians
+     $     coslat(plon)                  ! cosine of latitude
+      logical ggunif
+c------------------------------output-----------------------------------
+      real  n2o(plon,plev),        ! nitrous oxide mass mixing ratio
+     $     ch4(plon,plev),        ! methane mass mixing ratio
+     $     cfc11(plon,plev),      ! cfc11 mass mixing ratio
+     $     cfc12(plon,plev)       ! cfc12 mass mixing ratio
+      real ch4ppv, n2oppv, f11ppv, f12ppv  ! from gcm 
+c------------------------------local------------------------------------
+      integer i,                   ! longitude loop index
+     $        k                    ! level index
+      real  dlat                    ! latitude in degrees
+      real  xn2o,                   ! pressure scale height for n2o
+     $     xch4,                   ! pressure scale height for ch4
+     $     xcfc11,                 ! pressure scale height for cfc11
+     $     xcfc12                  ! pressure scale height for cfc12
+      real  ch40,                   ! tropospheric mass mixing ratio for ch4
+     $     n2o0,                   ! tropospheric mass mixing ratio for n2o
+     $     cfc110,                 ! tropospheric mass mixing ratio for cfc11
+     $     cfc120                  ! tropospheric mass mixing ratio for cfc12
+      real  ptrop(plon),                  ! pressure level of tropopause
+     $     pratio                  ! pressure divided by ptrop
+c
+      do i = 1,plon
+c
+c tropospheric mass mixing ratios
+c *ppv are volume mixing ratios, passed from gcm (dp 2/06)
+c IPCC values commented, 1991-1995 and 1961-1965
+      ch40   = 0.55241 * ch4ppv    ! 1.714e-6,  1.414e-6
+      n2o0   = 1.51913 * n2oppv    ! 0.311e-6,  0.287e-6
+      cfc110 = 4.69548 * f11ppv    ! 0.280e-9 
+      cfc120 = 4.14307 * f12ppv    ! 0.503e-9 
+C ccm3.6.6
+C
+C set tropospheric mass mixing ratios
+C
+c     ch40   = rmwch4 * ch4vmr
+c     n2o0   = rmwn2o * n2ovmr
+c     cfc110 = rmwf11 * f11vmr
+c     cfc120 = rmwf12 * f12vmr
+
+c set stratospheric scale height factor for gases
+      dlat = abs(57.2958 * clat(i))
+      if(dlat.le.45.0) then
+        xn2o = 0.3478 + 0.00116 * dlat
+        xch4 = 0.2353
+        xcfc11 = 0.7273 + 0.00606 * dlat
+        xcfc12 = 0.4000 + 0.00222 * dlat
+      else
+        xn2o = 0.4000 + 0.013333 * (dlat - 45)
+        xch4 = 0.2353 + 0.0225489 * (dlat - 45)
+        xcfc11 = 1.00 + 0.013333 * (dlat - 45)
+        xcfc12 = 0.50 + 0.024444 * (dlat - 45)
+      end if
+c
+c pressure of tropopause
+      ptrop(i) = 250.0e2 - 150.0e2*coslat(i)**2.0
+c
+      end do
+c
+      do k = 1,plev
+         do i = 1,plon
+c           ggunif is Namelist (T/F) variable for uniform atmos mixing
+            if (pmid(i,k).ge.ptrop(i) .or. ggunif) then
+              ch4(i,k) = ch40
+              n2o(i,k) = n2o0
+              cfc11(i,k) = cfc110
+              cfc12(i,k) = cfc120
+            else
+              pratio = pmid(i,k)/ptrop(i)
+              ch4(i,k) = ch40 * (pratio)**xch4
+              n2o(i,k) = n2o0 * (pratio)**xn2o
+              cfc11(i,k) = cfc110 * (pratio)**xcfc11
+              cfc12(i,k) = cfc120 * (pratio)**xcfc12
+            end if
+cfil
+c   test 0. trace mixing ratio
+c              ch4(i,k) = 1.e-30
+c              n2o(i,k) = 1.e-30
+c              cfc11(i,k) = 1.e-30
+c              cfc12(i,k) = 1.e-30
+cfil
+         end do
+      end do
+      return
+      end

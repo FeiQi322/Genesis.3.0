@@ -1,0 +1,637 @@
+                   ==============================
+                 | GENESIS GCM RELATED REFERENCES |
+                   ==============================
+
+Model Usage, Formulation, and Present-Day Results:
+--------------------------------------------------
+
+Pollard, D. and S.L. Thompson. 1992. Users' Guide to the GENESIS Global
+  Climate Model Version 1.02, Interdisciplinary Climate Systems Section,
+  Climate and Global Dynamics Division, NCAR, Boulder, Colorado, 58 pp.
+
+Pollard, D. and S.L. Thompson. 1994. Computational aspects of the GENESIS earth
+  systems modeling project. Proceedings of the 14th IMACS World Congress on
+  Computation and Applied Mathematics, W.F. Ames, ed., July 11-15 1994, Atlanta.
+
+Pollard, D. and S.L. Thompson. 1995. Users' Guide to the GENESIS Global
+  Climate Model Version 2.0, Interdisciplinary Climate Systems Section,
+  Climate and Global Dynamics Division, NCAR, Boulder, Colorado, 93 pp.
+
+Pollard, D. and S.L. Thompson. 1995. Use of a land-surface-transfer scheme (LSX)
+  in a global climate model (GENESIS): The response to doubling stomatal 
+  resistance. Global and Planetary Change (MECCA special issue), 10, 129-161.
+
+Thompson, S.L. and D. Pollard. 1995. A global climate model (GENESIS)
+  with a land-surface-transfer scheme (LSX). Part 1: Present-day climate.
+  J. Climate, 8, 732-761.
+
+Thompson, S.L. and D. Pollard. 1997. Greenland and Antarctic mass balances
+  for present and doubled CO2 from the GENESIS version 2 global climate
+  model. J. Climate, 10, 871-900.
+
+Thompson, S.L. and D. Pollard. 1997. Computational aspects of the GENESIS
+  Earth Systems Modeling project. In: Next Generation Environmental Models
+  and Computational Methods, G. Delic and M.F. Wheeler, eds. Society for
+  Industrial and Applied Mathematics, Philadelphia, 13-20. 
+
+Thompson, S.L., V. Ramaswamy and C. Covey. 1987. Atmospheric effects of nuclear
+  war aerosols in general circulation model simulations: influence of smoke 
+  optical properties. J. Geophys. Res., 92, 10942-10960.
+
+
+Other Present-day Analysis:
+---------------------------
+
+Foster, J., G. Liston, R. Koster, R. Essery, H. Behr, L. Dumenil, D. Verseghy,
+  S. Thompson, D. Pollard and J. Cohen. 1996. Snow cover and snow mass
+  intercomparisons of general circulation models and remotely sensed datasets.
+  J. Climate, 9, 409-426.
+
+Foster, J., R. Koster, H. Behr, L. Dumenil, J. Cohen, R. Essery, G. Liston,
+  S. Thompson, D. Pollard and D. Verseghy. 1996. Snow-mass intercomparisons
+  in the boreal forests from general circulation models and remotely sensed
+  datasets. Polar Record, 32, 199-208.
+
+Joseph, E. and W.-C. Wang. 1994. Incorporation of an improved cirrus cloud
+  parameterization into the NCAR-GENESIS climate model. 6th Symposium on 
+  Global Change Studies, Amer. Meteorol. Soc., 136-141.
+
+Levis, S., M.T. Coe and J.A. Foley. 1996. Hydrologic budget of a land
+  surface model: a global application. J. Geophys.Res., 101, D12, 16921-16930.
+
+Liang, X.-Z. and W.-C. Wang. 1995. A GCM study of the climatic effect
+  of 1979-1992 ozone trend.  In: Atmospheric Ozone as a Climate Gas,
+  W.-C. Wang and I. Isaksen, eds., NATO ASI Series, 259-288.
+
+McGinnis, D.L. and R.G. Crane. 1994. A multivariate analysis of Arctic
+  climate in GCMs. J. Climate, 7, 1240-1250.
+
+Robertson, F., E. Barron, S. Goodman, D. Fitzjarrald, B. Bishop, J. Christy,
+  S.L. Thompson and  D. Pollard. 1994. GENESIS climate model: intercomparisons
+  with multiple climate data bases. Fourth AMS Symposium on Global Change 
+  Studies, 17-22 January 1993, Anaheim, CA.
+
+Schwartz, M.D. 1996. An air mass-based approach to regional GCM validation.
+  Climate Research, 6, 227-235.
+
+Wang, W.-C., X.-Z. Liang, M.P. Dudek, D. Pollard and S.L. Thompson. 1995.
+  Atmospheric ozone as a climate gas. Atmospheric Research, 37, 247-256.
+
+Yip, K.-J. and T.J. Crowley. 1994. Selected circulation statistics and
+  sensitivity experiments for the GENESIS GCM. Texas Center for Climate Studies,
+  Technical Report No. 1, Texas A&M University, College Station, TX, 29 pp.
+
+
+Other Present and Future Applications including CO2 sensitivity:
+----------------------------------------------------------------
+
+Bergengren, J.C., S.L. Thompson, D. Pollard and R.M. DeConto. 2001. 
+  Modeling global climate-vegetation interactions in a doubled CO2 world.
+  Climatic Change, 50, 31-75.
+
+Bonan, G.B, D. Pollard and S.L. Thompson. 1992. Effects of boreal forest
+  vegetation on global climate. Nature, 359, 716-718.
+
+Bonan, G.B, D. Pollard and S.L. Thompson. 1993. Influence of subgrid-scale
+  heterogeneity in leaf area index, stomatal resistance, and soil moisture on 
+  grid-scale land-atmosphere interactions. J. Climate, 6, 1882-1897.
+
+Bonan, G.B, F.S. Chapin III and S.L. Thompson. 1995. Boreal forest and tundra
+  ecosystems as components of the climate system. Climatic Change, 29, 145-167.
+
+Crowley, T.J. and S.K. Baum. 1995. Is the Greenland ice sheet bistable?
+  Paleoceanography, 10, 357-363.
+
+Foley, J.A., I.C. Prentice, N. Ramankutty, S. Levis, D. Pollard, S. Sitch and
+  A. Haxeltine. 1996. An integrated biosphere model of land surface processes,
+  terrestrial carbon balance, and vegetation dynamics.
+  Global Biogeochemical Cycles, 10, 603-628.
+
+Foley, J.A., S. Levis, I.C. Prentice, D. Pollard and S.L. Thompson. 1998.
+  Coupling dynamic models of climate and vegetation. Global Change Biology, 
+  4, 561-579.
+
+Foley, J.A., S. Levis, M.H. Costa, W. Cramer and D. Pollard. 2000. 
+  Incorporating dynamic vegetation cover within global climate models.
+  Ecological Applications, 10, 1620-1632.
+
+Giorgi, F., C.S. Brodeur and G.T. Bates. 1994. Regional climate change 
+  scenarios over the United States produced with a nested regional climate 
+  model. J. Climate, 7, 375-399.
+
+Lamptey, B.L., 2005. The Role of Land Cover Change in Long-Term Climate Change.
+  Ph.D. thesis, Department of Geosciences, Pennsylvania State University, 
+  150 pp.
+
+Lamptey, B.L., E.J. Barron and D. Pollard. 2005. Simulation of the relative 
+  impact of land cover and carbon dioxide to climate change from 1700 to 2100. 
+  J. Geophys. Res.-Atmos., 110, D20103, doi:10.1029/2005JD005916, 1-17.
+
+Lamptey, B.L., E.J. Barron and D. Pollard. 2005. Impacts of agriculture and 
+  urbanization on the climate of the northeastern United States. 
+  Glob. Planet. Change, 49, 203-221.
+
+Levis, S., J.A. Foley and D. Pollard. 1999. Potential high-latitude vegetation
+  feedbacks on CO2-induced climate change. Geophys. Res. Letters, 26, 747-750.
+
+Levis, S., J.A. Foley, V. Brovkin and D. Pollard. 1999. On the stability of the
+  high-latitude climate-vegetation system in a coupled atmosphere-biosphere
+  model. Global Ecology and Biogeography, 8, 489-500.
+
+Levis, S., J.A. Foley and D. Pollard. 2000. Large-scale vegetation
+  feedbacks on a doubled CO2 climate. J. Climate, 13, 1313-1325.
+
+Mathieu, R., D. Pollard, J.E. Cole, J.W.C. White, R.S. Webb and S.L. Thompson.
+  2002. Simulation of stable water isotope variations by the GENESIS GCM for
+  modern conditions. J. Geophys. Res.-Atmos., 107, D4, 2-1 to 2-18.
+
+Pollard, D. and S.L. Thompson. 1994. Sea-ice dynamics and CO2 sensitivity 
+  in a global climate model. Atmos.-Ocean, 32, 449-467.
+
+Pollard D. and S.L. Thompson. 1997. The climatic effect of doubled stomatal
+  resistance. In: Assessing Climate Change: the Story of the Model Evaluation
+  Consortium for Climate Assessment. W. Howe and A. Henderson-Sellers, eds.
+  Gordon and Breach Science Publ., Chapter 13, 257-271.
+
+Ruddiman, W.F., S.J. Vavrus and J.E. Kutzbach. 2005. A test of the 
+  overdue-glaciation hypothesis. Quat. Sci. Rev., 24, 1-10.
+
+Still, C.J., P.N. Foster and S.H. Schneider. 1999. Simulating the effects of 
+  climate change on tropical montane cloud forests. Nature, 398, 608-610.
+
+Thompson, S.L. and D. Pollard. 1995. A global climate model (GENESIS)
+  with a land-surface-transfer scheme (LSX). Part 2: CO2 sensitivity.
+  J. Climate, 8, 1104-1121.
+
+Vavrus, S. 2004. The impact of cloud feedbacks on Arctic climate under 
+  greenhouse forcing. J. Climate, 603-615.
+
+Vavrus, S.J. and Z. Liu. 2002. Towards understanding the response of the 
+  tropical atmosphere-oceam system to increased CO2 using equilibrium
+  asynchronous coupling. Climate Dynamics, 19, 355-369.
+
+Vavrus, S.J. and S.P. Harrison. 2003. The impact of sea-ice dynamics on the 
+  Arctic climate system. Climate Dynamics, 20, 741-757.
+
+Wang, G., E.A.B. Eltahir, J.A. Foley, D. Pollard and S. Levis. 2004. Decadal 
+  variability of rainfall in the Sahel: results from the coupled GENESIS-IBIS 
+  atmosphere-biosphere model. Climate Dynamics, 22, 625-637.
+
+Weed, W.S. Circles of Life. Discover magazine, November 2002, 23 (11), 42-47.
+
+Williams, D.M. and D. Pollard. 2000. Earth-Moon interactions: implications
+  for terrestrial climate and life. In: Origin of the Earth and Moon,
+  R.M. Canup and K. Righter, eds., University of Arizona Press, 
+  513-525.
+
+Williams, D.M. and D. Pollard. 2002. Earthlike worlds on eccentric orbits:
+  excursions beyond the habitable zone. International Journal of 
+  Astrobiology, 1, 61-69.
+
+
+Paleoclimatic Applications:
+---------------------------
+
+Agustsdottir, A.M., R.B. Alley, D. Pollard and W.H. Peterson. 1999. 
+  Ekman transport and upwelling during Younger Dryas estimated from wind stress
+  from GENESIS climate model experiments with variable North Atlantic heat
+  convergence. Geophys. Res. Letters, 26, 1333-1336.
+
+Barron, E.J. 1994. Climatic Variation in Earth History, Global Change 
+  Instructional Program, Module #108, University Corporation for Atmospheric
+  Research, Boulder, CO, 22 pp.
+
+Barron, E.J. 1995. Warmer Worlds: Global Change Lessons from Earth History.
+  In: Future Climates of the World: a Modelling Perspective, 
+  A. Henderson-Sellers (ed.), Elsevier, 608pp.
+
+Barron, E.J. and G.T. Moore. 1994. Climate Model Application in 
+  Paleoenvironmental Analysis, Society for Sedimentary Geology, 
+  Short Course #33, 339 pp.
+
+Barron, E.J. and D. Pollard. 2002. High-resolution climate simulations of
+  Oxygen Isotope Stage 3 in Europe. Quat. Res., 58, 296-309.
+
+Barron, E.J., P.J. Fawcett, W.W. Peterson, D. Pollard and S.L. Thompson. 1993.
+  Model simulations of Cretaceous climates: the role of geography and carbon
+  dioxide. Phil. Trans. Roy. Soc., B341, 307-316.
+
+Barron, E.J., W.W. Peterson, D. Pollard and S.L. Thompson. 1993.
+  Past climate and the role of ocean heat transport: model simulations for the
+  Cretaceous. Paleoceanography, 8, 785-798.
+
+Barron, E.J., P.J. Fawcett, W.H. Peterson, D. Pollard and S.L. Thompson. 1995.
+  A "simulation" of mid-Cretaceous climate. Paleoceanography, 10, 953-962.
+
+Barron, E.J., T.H. van Andel and D. Pollard. 2003. Glacial environments II: 
+  Reconstructing the climate of Europe in the last glaciation. In: Neanderthals
+  and Modern Humans in the European Landscape during the Last Glaciation: 
+  Archaeological Results of the Stage 3 Project, T.H. van Andel and W. Davies, 
+  eds., Chapter 5, McDonald Institute for Archaeological Research, Cambridge, 
+  UK, 57-78.
+
+Batra, P.O. 2003. An Assessment of Interactively Coupled 
+  Paleoclimate-Vegetation Models. Ph.D. thesis, Department of Geosciences,
+  Pennsylvania State University, 151 pp.
+
+Baum, S.K. and T.J. Crowley. 2001. GCM response to late Precambrian (~590 Ma)
+  ice-covered continents. Geophys. Res. Lett., 28, 583-586.
+
+Baum S.K. and T.J. Crowley. 2003. The snow/ice instability as a mechanism for
+  rapid climate change: A Neoproterozoic Snowball Earth model example.
+  Geophys. Res. Lett., 30, 2030, doi:10.1029/2003GL017333.
+
+Beckmann, B., S. Floegel, P. Hoffman, M. Schulz and T. Wagner. 2005. Orbital
+  forcing of Cretaceous river discharge in tropical Africa and ocean response.
+  Nature, 437, 241-244.
+
+Bice, K.L. 1997. An Investigation of Early Eocene Deep Water Warmth using
+  Uncoupled Atmospheric and Ocean General Circulation Models: Model Sensitivity
+  to Geography, Initial Temperatures, Atmospheric Forcing and Continental
+  Runoff. Ph.D. Thesis, Earth Systems Science Center, College of Earth and
+  Mineral Sciences, Pennsylvania State University, 363 pp.
+
+Bice, K.L. and R.D. Norris. 2002. Possible atmospheric CO2 extremes of the
+  middle Cretaceous (late Albian-Turonian). Paleoceanography, 17, 4, 1070,
+  doi: 10.1029/2002PA000778, 22-1 to 22-17.
+
+Bice, K.L., E.J. Barron and W.H. Peterson. 1997. Continental runoff and early
+  Eocene bottom water sources. Geology, 25, 951-954.
+
+Bice, K.L., C.R. Scotese, D. Seidov and E.J. Barron. 2000. Quantifying the 
+  role of geographic change in Cenozoic ocean heat transport using uncoupled
+  atmospheric and ocean models. Palaeocean., Palaeoclim., Palaeoecol., 
+  161, 295-310.
+
+Bice, K.L., D. Birgel, P.A. Meyers, K.A. Dahl, K.-U. Hinrichs and R.D. Norris.
+  2006. A multiple proxy and model study of Cretaceous upper ocean 
+  temperatures and atmospheric CO2 concentrations. Palaeoceanography, 21, 
+  PA2002, doi:10.1029/2005PA001203, 1-17.
+ 
+Brady, E.C., R.M. DeConto and S.L. Thompson. 1998. Deep water formation
+  and poleward ocean heat transport in the warm climate extreme of the 
+  Cretaceous (80 Ma). Geophys. Res. Lett., 25, 22, 4205-4208.
+
+Coe, M.T. 1997. Simulating continental surface waters: an application to 
+  Holocene northern Africa. J. Climate, 10, 1680-1689.
+
+Cosgrove, B.A. 1999. A Simplified Dynamic Vegetation Model Coupled to the 
+  GENESIS GCM. M.S. Thesis, Earth Systems Science Center, College of Earth and 
+  Mineral Sciences, Pennsylvania State University, 181 pp.
+
+Cosgrove, B.A., E.J. Barron and D. Pollard. 2002. A simple interactive 
+  vegetation model coupled to the GENESIS GCM. Global and Planetary Change, 32,
+  253-278.
+
+Crowley, T.J., S.K. Baum and K.Y. Kim. 1993. General circulation model 
+  experiments with pole-centered supercontinents. J. Geophys. Res., 98,
+  8793-8800.
+
+Crowley, T.J., K.J. Yip and S.K. Baum. 1993. Milankovitch cycles and 
+  Carboniferous climate. Geophys. Research Letters, 20, 1175-1178.
+
+Crowley, T.J. and S.K. Baum. 1994. General circulation model study of late
+  Carboniferous interglacial climates. Palaeoclimates, 1, 3-21.
+
+Crowley, T.J., K.J. Yip and S.K. Baum. 1994. Snowline instability in a general
+  circulation model - application to Carboniferous glaciation.
+  Climate Dynamics, 10, 363-376.
+
+Crowley, T.J., K.J. Yip and S.K. Baum. 1994. Effect of altered Arctic sea ice
+  and Greenland ice sheet cover on the climate of the GENESIS general 
+  circulation model. Global and Planetary Change, 9, 275-288.
+
+Crowley, T.J. and S.K. Baum. 1995. Reconciling late Ordovician (440 Ma) 
+  glaciation with very high (14X) CO2 levels. J. Geophys. Res., 100, 1093-1101.
+
+Crowley, T.J. and S.K. Baum. 1995. Is the Greenland ice sheet bistable?
+  Paleoceanography, 10, 357-363.
+
+Crowley, T.J., K.J. Yip, S.K. Baum and S.B. Moore. 1996. Modelling
+  Carboniferous coal formation. Palaeoclimates, 2, 159-177.
+
+Crowley, T.J. and S.K. Baum, 1997: Effect of vegetation on an ice-age
+  climate model simulation. J. Geophys. Res., 102, D14, 16463-16480.
+
+Several papers in: Crowley, T.J. and K.C. Burke, editors. 1998. Tectonic
+  Boundary Conditions for Climate Reconstructions. Oxford Monographs on
+  Geology and Geophysics, No. 39. Oxford University Press, 285pp.
+  (Fawcett and Barron, Otto-Bliesner, Hay and Wold, Bice et al.)
+
+DeConto, R.M. and D. Pollard. 2003. Rapid Cenozoic glaciation of Antarctica 
+  triggered by declining atmospheric CO2. Nature, 421, 245-249.
+
+DeConto, R.M. and D. Pollard. 2003. A coupled climate-ice sheet modeling
+  approach to the early Cenozoic history of the Antarctic ice sheet.
+  Palaeogeography, Palaeoclimatology, Palaeoecology, 198, 53-67.
+
+DeConto, R.M., W.W. Hay and J.C. Bergengren. 1996. Modeling late Cretaceous 
+  climate and vegetation. Zbl. Geol. Palaont. Teil. I., H.11/12, 1433-1444.
+
+DeConto, R.M., W.W. Hay, S.L. Thompson and J.C. Bergengren. 1999. 
+  In: The Evolution of the Cretaceous Ocean-Climate System, eds. E. Barrera 
+  and C. Johnson, Geol. Soc. Am., Spec. Pap. 332, 391-406.
+
+DeConto, R.M., E.C. Brady, J.C. Bergengren and W.W. Hay. 2000. Late Cretaceous
+  climate, vegetation and ocean interactions. In: Warm Climates in Earth 
+  History, B.T. Huber, K.G. MacLeod and S.L. Wing, eds., 
+  Cambridge University Press, 275-296.
+
+DeConto, R.M., S.L. Thompson and D. Pollard. 2000. Recent advances in 
+  paleoclimate modeling: toward better simulations of warm paleoclimates. 
+  In: Warm Climates in Earth History, B.T. Huber, K.G. MacLeod and S.L. Wing, 
+  eds., Cambridge University Press, 21-49.
+
+DeConto, R.M., D. Pollard and D. Harwood. 2006. Sea ice feedback and Cenozoic
+  evolution of Antarctic climate and ice sheets. , Paleoceanography, 22, 
+  PA3214, doi:10.1029/2006PA001350.
+
+Doherty, R., J. Kutzbach, J. Foley and D. Pollard. 2000. Fully-coupled 
+  climate/dynamical vegetation model simulations over Northern Africa
+  during the mid-Holocene. Climate Dynamics, 16, 561-573.
+
+Dutton, J.F. and E.J. Barron. 1996. GENESIS sensitivity to changes in past
+  vegetation. Palaeoclimates, 1, 325-354. 
+
+Dutton, J.F. and E.J. Barron. 1997. Miocene to present vegetation changes:
+  a possible piece of the Cenozoic cooling puzzle. Geology, 25, 39-41.
+
+Fawcett, P.J. 1995. Simulation of Climate-Sedimentary Evolution: A Comparison
+  of Climate Model Results of the Geologic Record for India and Australia.
+  Ph.D. Thesis, TRS 94-001, Pennsylvania State University, University Park, PA.
+  327 pp.
+
+Fawcett P.J. and M.B.E. Boslough. 2002. Climatic effects of an impact-induced 
+  equatorial debris ring, J. Geophys. Res., 107(D15), doi:10.1029/2001JD001230.
+
+Fawcett, P.J., A.M. Agustsdottir, R.B. Alley and C.A. Shuman. 1997.
+  The Younger Dryas termination and North Atlantic deep water formation:
+  insights from climate model simulations and Greenland ice cores.
+  Paleoceanography, 12, 23-38.
+
+Felzer, B., S. Thompson, D. Pollard and J. Bergengren. 2000. GCM-simulated
+  hydrology in the Arctic during the past 21,000 years.
+  J. Paleolimnology, 24, 15-28.
+
+Floegel, S. 2001. On the Influence of Precessional Milankovitch Cycles on the 
+  Late Cretaceous Climate System: Comparison of GCM Results, Geochemical, and 
+  Sedimentary Proxies for the Western Interior Seaway of North America.
+  Ph.D. thesis, Faculty of Mathematics and Natural Science, University of Kiel,
+  Germany, 236 pp.
+
+Floegel, S. and T. Wagner. 2006. Insolation-control on the late Cretaceous 
+  hydrological cycle and tropical African climate - global climate modelling 
+  linked to marine climate records.  Palaeogeography, Palaeoclimatology, 
+  Palaeoecology, 235, 288-304.
+
+Floegel, S., W.W. Hay, R.M. DeConto and A.N. Balukhovsky. 2005. Formation of 
+  sedimentary bedding couplets in the Western Interior Seaway of North America-
+  implications from climate system modeling. Palaeogeography, Palaeoclimatology,
+  Palaeoecology, 218, 125-143.
+
+Foley, J.A., 1994:  The sensitivity of the terrestrial biosphere to climatic
+  change: a simulation of the middle Holocene. Glob. Biogeochem. Cycles,
+  8, 505-525.
+
+Foley, J.A., J.E. Kutzbach, M.T. Coe and S. Levis. 1994. Feedbacks between
+  climate and boreal forests during the Holocene epoch. Nature, 371, 52-54.
+
+Gibbs, M.T. 1996. Glaciation, Chemical Weathering and the Carbon Cycle.
+  Ph.D. Thesis, Earth Systems Science Center, College of Earth and Mineral
+  Sciences, Pennsylvania State University, 211 pp.
+
+Gibbs, M.T. 2002. Simulations of Permian Climate. J. Geology, 110, 33-55.
+
+Hay, W.W., S. Thompson, D. Pollard,  K.M. Wilson and C.N. Wold. 1994.
+  Results of a climate model for Triassic Pangaea. 
+  Zbl. Geol. Palaont. Teil I, 11/12, 1253-1265.
+
+Herrmann, A.D., M.E. Patzkowsky and D. Pollard. 2003. Obliquity forcing
+  with 8-12x pre-industrial levels of atmospheric pCO2 during the late
+  Ordovician glaciation. Geology, 31, 6, 485-488.
+
+Herrmann, A.D., M.E. Patzkowsky and D. Pollard. 2004. The impact of 
+  paleogeography, pCO2, poleward ocean heat transport and sea level change on 
+  global cooling during the late Ordovician. Palaeogeography, 
+  Palaeoclimatology, Palaeoecology, 206, 59-74.
+
+Horton, D.E., C.J. Poulsen and D. Pollard. 2007. Orbital and CO2 forcing of 
+  late Paleozoic continental ice sheets. Geophys. Res. Lett., in press.
+
+Hostetler, S.W. and P.J. Bartlein, 1999. Simulation of the potential responses 
+  of regional climate and surface processes in western North America to a 
+  canonical Heinrich event. In: Mechanisms of Global Climate Change at 
+  Millennial Time Scales (eds. Clark, P.U., Webb R.S. and Keigwin, L.). 
+  AGU Monograph Series, American Geophysical Union, Washington D.C., 313-328.
+
+Hostetler, S.W. and P.U. Clark. 2000. Tropical climate at the last glacial 
+  maximum inferred from glacier nmass-balance modeling. Science, 290, 1747-1750.
+
+Hostetler, S.W. and A.C. Mix. 1999. Reassessment of ice-age cooling of the 
+  tropical ocean and atmosphere. Nature, 399, 673-676.
+
+Hostetler, S.W., P.U. Clark, P.J. Bartlein, A.C. Mix and N.J. Pisias. 1999.
+  Atmospheric transmission of north Atlantic Heinrich events. J. Geophys. Res.,
+  104, D4, 3947-3952.
+
+Hostetler, S.W., P.J. Bartlein, P.U. Clark, E.E. Small and A.M. Solomon. 2000.
+  Simulated influences of Lake Agassiz on the climate of central North America 
+  11,000 years ago. Nature, 405, 334-337.
+
+Hostetler, S.W., N.J. Pisias, and A.C. Mix. 2006. Sensitivity of Last Glacial 
+  Maximum climate to uncertainties in tropical and subtropical ocean 
+  temperatures. Quat. Sci. Rev., 25, 1168-1185.
+
+Several papers in: Huber, B.T, K.G. MacLeod and S.L. Wing, editors. 2000.
+  Warm Climates in Earth History, Cambridge University Press, 462pp.
+  (Bice et al., DeConto et al., Gibbs et al.)
+
+Huber, M. and L.C. Sloan. 2000. Climate responses to tropical sea surface
+  temperature changes on a "greenhouse" Earth. Paleoceanography, 15, 443-450.
+
+Hyde, W.T., T.J. Crowley, S.K. Baum and W.R. Peltier. 2000. Neoproterozoic
+   'snowball earth' simulatoins with a coupled climate-ice sheet model.
+   Nature, 405, 425-429.
+
+Jenkins, G. 1995. Early earth's climate: cloud feedback from reduced land
+  fractions and ozone concentrations. Geophys. Research Letters, 22, 1513-1516.
+
+Jenkins, G.S. and L.A. Frakes. 1998. GCM sensitivity test using increased
+  rotation rate, reduced solar forcing and orography to examine low latitude
+  glaciation in the Neoproterozoic. Geophys. Res. Lett., 25, 18, 3525-3528.
+
+Jenkins, G.S. 1999. Examining the sensitivity of Earth's climate to the 
+  removal of ozone, landmasses and enhanced ocean heat transport in the GENESIS 
+  global climate model. Glob. Planet. Change, 20, 257-279.
+
+Jenkins, G.S. 2000. Global climate model high-obliquity solutions to the
+  ancient climate puzzles of the Faint-Young Sun Paradox and low-altitude
+  Proterozoic glaciation. J. Geophys. Res., 105, D6, 7357-7370.
+
+Jenkins, G.S. 2001. High-obliquity simulations for the Archean Earth: 
+  implications for climatic conditions on Mars. J. Geophys. Res., 106, E12, 
+  32903-32913.
+
+Jenkins, G.S. 2003. GCM greenhouse and high-obliquity solutions for early
+  Proterozoic glaciation and middle Proterozoic warmth. J. Geophys. Res., 
+  108, D3, 4118, doi:10.1029/2001JD001582.
+
+Kutzbach, J.E. and Z. Liu. 1997. Response of the African monsoon to orbital 
+  forcing and ocean feedbacks in the middle Holocene. Science, 278, 440-443.
+
+Levis, S., J.A. Foley and D. Pollard. 1999. Climate-vegetation feedbacks at the
+  Last Glacial Maximum. J. Geophys. Res., 104, D24, 31191-31198
+
+Miller, G., J. Mangan, D. Pollard, S. Thompson, B. Felzer and J. Magee. 2005. 
+  Sensitivity of the Australian monsoon to insolation and vegetation: 
+  implications for human impact on continental moisture balance. 
+  Geology, 33, 1, 65-68.
+
+Morrill, C., E.E. Small and L.C. Sloan. 2001. Modeling orbital forcing of lake
+  level change: Lake Gosiute (Eocene), North America. Glob. Planet. Change,
+  29, 57-76.
+
+Otto-Bliesner, B.L. 1993. Tropical mountains and coal formation: a climate model
+  study of the Westphalian (306 Ma). Geophys. Res. Letters.,20, 1947-1950.
+
+Otto-Bliesner, B.L. 1996. Initiation of a continental ice sheet in a
+  global climate model (GENESIS). J. Geophys. Res., 101, D12, 16909-16920.
+
+Otto-Bliesner, B.L. 1996. Effects of tropical mountain elevations on the
+  climate of the late Carboniferous: climate model simulations.
+  "Tectonic Boundary Conditions for Climate Reconstructions", T.J. Crowley 
+  and K.C. Burke (Eds.), Oxford Monographs on Geology and Geophysics.
+
+Otto-Bliesner, B.L. and G.R. Upchurch. 1997. Vegetation-induced warming of
+  high-latitude regions during the late Cretaceous period. Nature, 385,
+  804-807.
+
+Pavlov, A.A., O.B. Toon, A.K. Pavlov, J. Bally and D. Pollard. 2005. Passing 
+  through a giant molecular cloud - Snowball glaciations produced by 
+  interstellar dust. Geophys. Res. Lett., 32, L03705, doi:10.1029/2004GL021890.
+
+Pollard, D. and E.J. Barron. 2003. Causes of model-data discrepancies in 
+  European climate during oxygen isotope stage 3 with insights from the 
+  last glacial maximum. Quat. Res., 59, 108-113.
+
+Pollard, D. and R.M. DeConto. 2003. Antarctic ice and sediment flux in the 
+  Oligocene simulated by a climate-ice sheet-sediment model.
+  Palaeogeography, Palaeoclimatology, Palaeoecology, 198, 53-67.
+
+Pollard, D. and R.M. DeConto. 2005. Hysteresis in Cenozoic Antarctic ice sheet 
+  variations. Glob. Planet. Change, 45, 9-21.
+
+Pollard, D. and J.F. Kasting. 2004. Climate-ice sheet simulations of 
+  Neoproterozoic glaciation before and after collapse to Snowball Earth. 
+  In: The Extreme Proterozoic: Geology, Geochemistry and Climate. Eds. 
+  G. Jenkins, M. McMenamin. C. McKay and L. Sohl, Geophysical Monograph 
+  146, American Geophysical Union, Washington, D.C., 91-105.
+
+Pollard, D. and D.B. Reusch. 2002. A calendar conversion method for monthly 
+  mean paleoclimate model output with orbital forcing. J. Geophys. Res.-Atmos.,
+  107, D22, 4615, 3-1 to 3-7, 10.1029/2002JD002126.
+
+Pollard, D. and M. Schulz. 1994. A model for the potential locations of
+  Triassic evaporite basins driven by paleoclimatic GCM simulations.
+  Glob. Planet. Change, 9, 233-249.
+
+Pollard D. and S.L. Thompson. 1996. PMIP experiments with GENESIS global
+  climate model version 2.0. PaleoTimes, volume IV, 3-4.
+
+Pollard, D. and S.L. Thompson. 1997. Climate and ice-sheet mass balance
+  at the last glacial maximum from the GENESIS version 2 global climate model.
+  Quaternary Science Reviews, 16, 841-863.
+
+Pollard, D. and S.L. Thompson. 1997. Driving a high-resolution dynamic
+  ice-sheet model with GCM climate: ice-sheet initiation at 116 Kyr BP.
+  Annals of Glaciology, 25, 296-304.
+
+Pollard, D., J.C. Bergengren, L.M. Stillwell-Soller, B. Felzer and 
+  S.L. Thompson. 1998. Climate simulations for 10000 and 6000 years BP using
+  the GENESIS global climate model. Palaeoclimates, 2, 183-218.
+
+Pollard, D., R.M. DeConto and A.A. Nyblade. 2005. Sensitivity of Cenozoic 
+  Antarctic ice sheet variations to geothermal heat flux. 
+  Glob. Planet. Change, 49, 63-74.
+
+Poulsen, C.J. 1999. The Mid-Cretaceous Ocean Circulation  and its Impact on
+  Greenhouse Climate Dynamics. Ph.D. Thesis, Earth Systems Science Center, 
+  College of Earth and Mineral Sciences, Pennsylvania State University, 219 pp.
+
+Poulsen, C.J., D. Seidov, E.J. Barron and W.H. Peterson. 1998. The impact
+  of paleogeographic evolution on the surface oceanic circulation and the 
+  marine environment within the mid-Cretaceous Tethys. 
+  Paleoceanography, 13, 546-559.
+
+Poulsen, C.J., E.J. Barron and W.H. Peterson. 1999. A reinterpretation of
+  mid-Cretaceous shallow marine temperatures through model-data comparison. 
+  Paleoceanography, 14, 679-697.
+
+Poulsen, C.J., E.J. Barron, M.A. Arthur and W.H. Peterson. 2001. Response of 
+  the mid-Cretacous global oceanic circulation to tectonic and CO2 forcings.
+  Paleoceanography, 16, 576-592.
+
+Poulsen, C.J., D. Pollard and T.S. White. 2006. General Circulation Model
+  simulation of the d18O content of continental precipitation in the middle 
+  Cretaceous: A model-proxy comparison. Geology, 35, 199-202.
+
+Poulsen, C.J., D. Pollard, I.P. Montanez and D. Rowley. 2007. Late Paleozoic 
+  tropical climate response to Gondwanan glaciation, Geology, in press.
+
+Sewall, J.O., L.C. Sloan, M. Huber and S. Wing. 2000. Climate sensitivity to 
+  changes in land surface characteristics. Glob. Planet. Change, 26, 445-465.
+
+Sloan, L. C. and D.K. Rea. 1995. Atmospheric carbon dioxide and early Eocene
+  climate: a general circulation modeling sensitivity study.
+  Palaeogeogr., Palaeoclimatol., Palaeoecol., 119 , 275-292.
+
+Sloan, L. C., J.C.G. Walker and T.C. Moore. 1995. The role of oceanic heat
+  transport in early Eocene climate. Paleoceanography, 10, 347-356.
+
+Sloan, L.C. and D. Pollard. 1998. Polar stratospheric clouds: a high latitude
+  warming mechanism in an ancient greenhouse world. 
+  Geophysical Research Letters, 25, 3517-3520.
+
+Sloan, L.C. and M. Huber. 2001. Eocene oceanic responses to orbital forcing 
+  on precessional time scales. Paleoceanography, 16, 101-111.
+
+Sloan, L. C., T.J. Crowley and D. Pollard. 1996. Modeling of middle Pliocene
+  climate with the the NCAR GENESIS general circulation model.
+  Marine Micropaleontology, (special volume on Climates and Climate Variability
+  of the Pliocene), 27, 51-61.
+
+TEMPO Members (J.Kutzbach, P.Bartlein, J.Foley, S.Harrison, S.Hostetler,
+  Z.Liu, I.C.Prentice, T.Webb). 1996. The potential role of vegetation
+  feedback in the climate sensitivity of high-latitude regions: a case study
+  at 6000 years before present. Global Biogeochemical Cycles, 10, 4, 727-736.
+
+Thompson, S.L. and D. Pollard, 1997. Ice-sheet mass balance at the last
+  glacial maximum from the GENESIS version 2 global climate model.
+  Annals of Glaciology, 25, 250-258.
+
+Thorn, V.C. and R. DeConto, 2006. Antarctic climate at the Eocene/Oligocene 
+  boundary - climate model sensitivity to high latitude vegetation type and
+  comparisons with the palaebotanical record. Palaeogeogr., Palaeoclim.,
+  Palaeoecol., 231, 134-157. 
+
+Valdes, P.J. and T.J. Crowley. 1998. A climate model intercomparison for the
+  Carboniferous. Paleoclimates, 2, 219-238.
+
+Vavrus, S.J. 1999. The response of the coupled Arctic sea ice-atmosphere system
+  to orbital forcing and ice motion at 6 kyr and 115 kyr BP. J. Climate, 12, 
+  873-896.
+
+White, T., L. Gonzalez, G. Ludvigson and C. Poulsen. 2001. Middle Cretaceous
+  greenhouse hydrologic cycle of North America. Geology, 29, 4, 363-366. 
+
+Williams, D.M. and D. Pollard. 2003. Extraordinary climates of earth-like
+  planets: three-dimensional climate simulations at extreme obliquity. 
+  International Journal of Astrobiology,  2, 1-19.
+
+Wilson, K.M., D. Pollard, W.W. Hay, S.L. Thomspon and C.N. Wold. 1994.
+  General circulation model simulations of Triassic climates: preliminary
+  results. In: Pangea: Paleoclimate, Tectonics and Sedimentation during
+  Accretion, Zenith and Breakup of a Supercontinent, G.D. Klein, ed.,
+  Special Paper 288, Geological Society of America, Boulder, Colorado, 91-116.
+
+--------------------------------------------------------------------------------

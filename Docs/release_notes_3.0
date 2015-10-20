@@ -1,0 +1,141 @@
+===============================================================================
+GENESIS version 3.0 Notes.                                                 4/07
+===============================================================================
+
+Physics changes:
+================
+
+- Solar and IR radiation code has been replaced by CCM3 radiation 
+  (adapted from RegCM3 code).
+
+- Puddles (aka ponding) has been removed from the LSX soil water treatment.
+
+- A look-up table is used for all water SVP vs. temperature functions (as 
+  always used in the AGCM. In v2 LSX, a set of statement functions was used,
+  inaccurate at very low temperatures relevant only to Snowball Earth).
+
+- Nb: Make sure QFACTOR=1 to get the default slab ocean heat diffusive transport
+  in v3. The default diffusivity value in the code has been changed, and  
+  depends slightly on surface model resolution.
+
+Namelist, history, run script changes:
+======================================
+
+- Data input files no longer need to be copied to the local directory.
+  Their full path/file names are now given in Namelist (see supplied debpres
+  file). However, if you are updating old v2 deb files and, for convenience,
+  keep the old v2 "cp..." section that copies them to standard local names, 
+  rather than creating new Namelist settings as above, that will still work 
+  in v3 (since the default v3 data path/file names are the old v2 standard 
+  local names).
+
+- The year number in start and end dates BASEDATE and ENDDATE is not 
+  automatically added to 1900 (if between 0 and 200) by the gcm code, 
+  as it was in version 2. Instead, the year in BASEDATE and ENDDATE 
+  should be entered in full, e.g., BASEDATE = '2001/01/01'. This requires
+  some changes to "deb..." files setting $year_base, $year and $yearlab;
+  see, for instance, /iguana/s1/pollard/Genesis.3.0/debv3 lines 77 to 90. 
+ 
+- There are a few minor differences in history field names from version 2: 
+  * FRSAC is a new v3 field (clear sky absorbed at surface,= old FRSAVC+FRSANC).
+    The old v2 FRSAVC and FRSANC must be removed.
+  * Similary, the old FRSIVC and FRSINC must be removed (and there is no FRSIC).
+  * PRESCSUV (prescribed surface winds for dynamic sea ice) is no longer 
+    an option for v3, and must be removed.
+
+- There are different Namelist names (units really) for greenhouse trace gas 
+  concentrations, as in the supplied debpres file and below. 
+  These (modern) values are the defaults. "PPV" = parts by volume (volume 
+  mixing ratio),  "PPM" = parts by mass (mass mixing ratio). 
+ 
+  SOLFAC  = 1.        ; factor multiplying SOLPAR
+  SOLPAR  = 1367.     ; solar constant (W/m2)
+  CO2PPV  = 355.e-6   ; IPCC 1991-1995
+  CH4PPV  = 1.714e-6  ; IPCC 1991-1995
+  N2OPPV  = 0.311e-6  ; IPCC 1991-1995
+  F11PPV  = 0.280e-9  ; IPCC 1991-1995 (?)
+  F12PPV  = 0.503e-9  ; IPCC 1991-1995 (?)
+  O2PPM   = .23143    ; O2 mass mixing ratio
+  O3FAC   = 1         ; factor multiplying all O3 concentrations from data file
+
+- Almost all non-normal terminations of the GENESIS executable (due to 
+  detectable errors such as invalid namelist input, or to machine FPEs,etc),
+  now return a non-zero status code, which is used to terminate the run in 
+  runpres. So there is no spurious looping and annoying file generation 
+  through all the remaining years. 
+
+- In directory Runpres, files runpres, debpres and year_file_pres are 
+  provided as an example for a modern simulation.  Note that:
+  * Setting of NSREST to 0 or 1 is automated in debpres, depending on 
+    the year (see the script in debpres).
+  * In debpres, you need to set host, pathnames, parallelization variables,
+    appropriately for your machine (probably keep using hostsys = linux
+    if your machine is Linux). 
+  * To change the experiment name from "pres" (= history file prefix),
+    change the line "set exp = pres" in both runpres and debpres.
+
+- For Linux machines, Intel Fortran has a feature that allows the reading 
+  of Cray binary files. This is utilized in Genesis v3, so that v2 restart 
+  files originally made on the Cray (or on the same machine as currently used)
+  can be used transparently to start v3 runs.
+
+- If no LONOLSX, LATOLSX values are entered, the default is not to write
+  any single-point output files (fort.50, 51, etc) for LSX.
+
+- HISNET now defaults to .TRUE., i.e., history files written in NetCDF format.
+
+- History fields:
+
+    Day lengths, in the "INPUT" (first, agcm) Namelist group:
+
+    DAYLENRAD = day length for solar radiation only, in hours.  
+                Can be any value. If positive, then present-earth diurnal
+                solar direction (sun tracks E to W across the sky). 
+                If negative,then sun tracks in the opposite direction (W to E). 
+                If zero is entered, this is equivalent to infinity, i.e.,
+                permanent subsolar point over Greenwich (0 E).
+                Default is 24.
+
+    DAYLENCOR = inertial rotation period for Coriolis force only, in hours.  
+                Can be any value, but I'm not sure of the dynamical code
+                validity for negative values, so only use positive values 
+                for now (positive = inertial planet spin is W to E).
+                If zero is entered, this is equivalent to infinity, i.e.,
+                no Coriolis force.
+                Default is 24.
+
+    Dynamical fluxes (3-D), in the "INPUT" (first, agcm) Namelist group:
+
+    UVFLUX = u*v
+    WUFLUX = omega*u
+    WTFLUX = omega*T
+    WVOFLUX = omega*vorticity
+    WPVOFLUX = omega*potential vorticity
+
+    TAIR as an alternate name for T, for ferret.
+
+- In the "INPUTLSX" (third, lsx) Namelist group:
+
+    WSOI_INIT = initial soil moisture (0 to 1, fraction relative to saturation).
+                Default = 0.6.
+                nb: this only has an effect for "cold starts", i.e., 
+                for NSREST = -1. If NSREST = 0 or 1, then soil moisture is
+                set from the restart file.
+
+- History fields with vertical soil-layer dimension:
+    WFLOALL, POROSALL, TSOIALL, WETALL, WICEALL
+  For indiv soil layers: 
+    WFLO[1-7] (kg/m2/s), POROS[1-6] (like T[1-6], WET[1-6], WICE[1-6])
+
+- The effect of QLIMIT on ocean heat diffusion is simplified, so now it doesn't
+  interact with QICES,N. Default for QLIMIT is 0. If entered as non zero, 
+  there is no latitudinal or land-fraction influence on ocean heat diffusion 
+  coefficient. If QLIMIT > 0, |SST gradients| are limited by QLIMIT (K/deg arc).
+  So to have uniform coefficient without any gradient limit, 
+  set QLIMIT =-1, or 1.e20, for instance.
+
+  Nb: As before, QICES,N default to modern values (15,0 W/m2 respectively for 
+  v3). If set to negative, there is no effect on ocean heat flux. 
+  If set to 0, then ocean heat flux tends to 0 below sea ice.   
+
+====

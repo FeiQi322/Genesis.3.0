@@ -1,0 +1,368 @@
+#
+# Copyright (c) 2008 Aconex.  All Rights Reserved.
+# Copyright (c) 2000,2003,2004 Silicon Graphics, Inc.  All Rights Reserved.
+# 
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+# 
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
+#
+
+# Common gmake macros for building
+#
+# src/include/builddefs.  Generated from builddefs.in by configure.
+#
+ifndef _BUILDDEFS_INCLUDED_
+_BUILDDEFS_INCLUDED_ = 1
+
+ifndef _PCP_CONF_INCLUDED_
+_PCP_CONF_INCLUDED_ = 1
+include /etc/pcp.conf
+endif
+
+# General package information
+PACKAGE_VERSION ?= 3.5.5
+PACKAGE_MAJOR ?= 3
+PACKAGE_MINOR ?= 5
+PACKAGE_REVISION ?= 5
+PACKAGE_BUILD ?= 1
+PACKAGE_NAME ?= pcp
+PACKAGE_DISTRIBUTION ?= suse
+SGI_CHROOT_BUILD ?= 0
+SGI_ISSP_BUILD ?= 0
+
+BUILDRULES = $(PCP_INC_DIR)/buildrules
+
+TARGET_OS = linux
+TARGET_VENDOR = unknown
+TARGET_CPU = x86_64
+
+BUILD_OS = linux
+BUILD_VENDOR = unknown
+BUILD_CPU = x86_64
+
+PACKAGE_BUILDER = abuild@polaris-admin
+
+# LCFLAGS, LLDFLAGS, LLDLIBS, LSRCFILES and LDIRT may be specified in
+# user Makefiles. Note: LSRCFILES is anything other than Makefile,
+# $(CFILES), or $(HFILES) and is used to construct the manifest list
+# during the "dist" phase (packaging).
+
+# turn on all warnings by default
+WARN_OFF = -Wall
+
+PTHREAD_LIB = -lpthread
+LIBPCP_ABIDIR ?= src
+PCP_LIBS = -L$(TOPDIR)/src/libpcp/$(LIBPCP_ABIDIR) \
+	   -L$(TOPDIR)/src/libpcp_pmda/$(LIBPCP_ABIDIR)
+
+# platform-specific CFLAGS, LDLIBS, and shared library extension
+ifeq "$(TARGET_OS)" "linux"
+PCFLAGS = -fpic -fno-strict-aliasing -D_GNU_SOURCE
+DSOSUFFIX = so
+endif
+ifeq "$(TARGET_OS)" "freebsd"
+PCFLAGS = -fpic -fno-strict-aliasing
+DSOSUFFIX = so
+endif
+ifeq "$(TARGET_OS)" "darwin"
+PCFLAGS = -fPIC -no-cpp-precomp -fno-strict-aliasing -arch i386
+ifeq "$(PACKAGE_DISTRIBUTION)" "cocoa"
+PCFLAGS += -arch x86_64
+endif
+DSOSUFFIX = dylib
+CASE_INSENSITIVE_FS=1
+endif
+ifeq "$(TARGET_OS)" "mingw"
+PCFLAGS = -fno-strict-aliasing -I$$PCP_DIR/local/include -I$$PCP_DIR/include
+DSOSUFFIX = dll
+EXECSUFFIX = .exe
+SHELLSUFFIX = .sh
+PLDLIBS = -lwsock32 -L$$PCP_DIR/local/bin -L$$PCP_DIR/local/lib -L$$PCP_DIR/lib
+endif
+ifeq "$(TARGET_OS)" "solaris"
+PCFLAGS = -fPIC
+ifeq "yes" "yes"
+PCFLAGS += -fno-strict-aliasing
+else
+# Assume that this is the Sun compiler which does not grok -Wall
+WARN_OFF =
+endif
+PLDLAGS = -fPIC
+PLDLIBS = -lnsl -lsocket -lresolv -ldl -lposix4
+DSOSUFFIX = so
+endif
+ifeq "$(TARGET_OS)" "aix"
+DSOSUFFIX = so
+# -qcpluscmt
+#	allow C++-style // as comment preamble
+# -brtl
+#       use run-time linker
+# -bnoipath
+#       do not use path to DSOs from the build, use default search path
+#       rules
+# (and does not accept -Wall as a valid option)
+PCFLAGS = -qcpluscmt
+PLDFLAGS = -brtl -bnoipath
+WARN_OFF =
+endif
+
+CFLAGS_ABI = 
+CFLAGS += $(CFLAGS_ABI) $(PCFLAGS) $(LCFLAGS) $(WARN_OFF) -g -DPCP_DEBUG \
+	-DPCP_VERSION=\"$(PCP_VERSION)\" -DASYNC_API -I$(TOPDIR)/src/include
+
+LDFLAGS += $(CFLAGS_ABI) $(PLDFLAGS) $(WARN_OFF) $(PCP_LIBS) $(LLDFLAGS)
+
+SRCFILES = GNUmakefile $(HFILES) $(CFILES) $(MFILES) \
+	$(LSRCFILES) $(LFILES) $(YFILES)
+
+LDLIBS = $(LLDLIBS) $(PLDLIBS)
+MAKEOPTS = --no-print-directory
+DIRT = $(LDIRT) dep dep.bak $(OBJECTS) $(CMDTARGET) $(LIBTARGET) \
+	$(STATICLIBTARGET) *.[1-9].gz *.[1-9].tmp
+DIRDIRT = $(LDIRDIRT)
+
+OBJECTS = $(ASFILES:.s=.o) \
+          $(CFILES:.c=.o) \
+          $(FFILES:.f=.o) \
+          $(LFILES:.l=.o) \
+          $(YFILES:%.y=%.tab.o)
+
+MAKE	= /usr/bin/gmake
+CC	= gcc
+LD	= /usr/bin/ld
+AWK	= /usr/bin/gawk
+SED	= /usr/bin/sed
+CPP	= gcc -E
+LEX	= flex
+YACC	= bison -y
+ECHO	= /bin/echo
+LN_S	= ln -s
+GREP    = grep
+
+INSTALL_SH = $(PCP_BINADM_DIR)/install-sh
+INSTALL	= $(INSTALL_SH) -o root -g root
+
+CCF	= $(CC) $(CFLAGS)
+MAKEF	= $(MAKE) $(MAKEOPTS)
+LDF	= $(LD) $(LDFLAGS)
+MAKEDEPEND = /bin/true
+
+ZIP	= /usr/bin/gzip
+BZIP2	= /usr/bin/bzip2
+TAR	= /bin/tar
+RPMPROG	= /usr/bin/rpmbuild
+PACKAGE_MAKER = 
+HDIUTIL = 
+MKINSTALLP = 
+DLLTOOL = 
+RPMBUILD= /usr/bin/rpmbuild
+RPM	= /bin/rpm
+POD2MAN = /usr/bin/pod2man
+DPKG	= 
+MAKEPKG	= 
+GENPMDA = $(PCP_BIN_DIR)/genpmda
+PKGMK	= 
+MD5SUM	= /usr/bin/md5sum
+
+HAVE_GZIPPED_MANPAGES = true
+HAVE_BZIP2ED_MANPAGES = false
+NEED_OLD_TBL_HEADER = false
+RDYNAMIC_FLAG = -rdynamic
+
+# additional libraries needed for particular functions
+LIB_FOR_BASENAME = 
+LIB_FOR_DLOPEN = -ldl
+LIB_FOR_REGEX = 
+LIB_FOR_MATH = 
+LIB_FOR_READLINE = -lreadline
+LIB_FOR_CURSES = 
+
+SHELL = /bin/sh
+IMAGES_DIR = $(TOPDIR)/all-images
+DIST_DIR = $(TOPDIR)/dist
+
+# env vars to be set before you can run a PCP binary in the build
+# environment ... needed for tools like newhelp
+#
+# default, then special case for different platforms
+#
+RUN_IN_BUILD_ENV = PCP_CONF=$(TOPDIR)/src/include/pcp.conf LD_LIBRARY_PATH=$(TOPDIR)/src/libpcp/src:$(TOPDIR)/src/libpcp_pmda/src:$$LD_LIBRARY_PATH HOME=`pwd` PCP_ALT_CPP=$(TOPDIR)/src/pmcpp/pmcpp
+ifeq "$(TARGET_OS)" "darwin"
+RUN_IN_BUILD_ENV = PCP_CONF=$(TOPDIR)/src/include/pcp.conf DYLD_LIBRARY_PATH=$(TOPDIR)/src/libpcp/src:$(TOPDIR)/src/libpcp_pmda/src:$$DYLD_LIBRARY_PATH HOME=`pwd` PCP_ALT_CPP=$(TOPDIR)/src/pmcpp/pmcpp
+endif
+ifeq "$(TARGET_OS)" "aix"
+RUN_IN_BUILD_ENV = PCP_CONF=$(TOPDIR)/src/include/pcp.conf LIBPATH=$(TOPDIR)/src/libpcp/src:$(TOPDIR)/src/libpcp_pmda/src:$$LIBPATH HOME=`pwd` PCP_ALT_CPP=$(TOPDIR)/src/pmcpp/pmcpp
+endif
+ifeq "$(TARGET_OS)" "mingw"
+RUN_IN_BUILD_ENV = PCP_CONF=$(TOPDIR)/src/include/pcp.conf PATH=$(TOPDIR)/src/libpcp/src:$(TOPDIR)/src/libpcp_pmda/src:$$PATH USERPROFILE=`pwd` PCP_ALT_CPP=`pwd`/$(TOPDIR)/src/pmcpp/pmcpp
+endif
+
+SUBDIRS_MAKERULE = \
+	@for d in `echo $^ `; do \
+	    if test -d "$$d" -a -f "$$d/GNUmakefile"; then \
+		$(ECHO) === $$d ===; \
+		$(MAKEF) -C $$d $@ || exit $$?; \
+	    fi; \
+	done
+
+DOMAIN_MAKERULE = \
+	@rm -f domain.h; \
+	echo "/*" >domain.h; \
+	echo " * built from $<" >>domain.h; \
+	echo " */" >>domain.h; \
+	$(PCP_AWK_PROG) <$< '\
+	    $$1=="\#define" && $$2 == "$(DOMAIN)" {\
+		print "\#define $(DOMAIN) " $$3 >>"$@"; found++ \
+	    }\
+	    END {\
+		if (found == 0) { \
+		    print "Botch: no define for domain $(DOMAIN) in $<"; \
+		    exit(1) \
+		}\
+		if (found > 1) { \
+		    print "Botch: multiple defines for domain $(DOMAIN) in $<";\
+		    print "... see $@ for details"; \
+		    exit(1) \
+		}\
+        	exit(0) \
+            }'
+
+DOMAIN_PERLRULE = \
+	@export perldomain=`sed -n \
+		-e '/PCP::PMDA->new/s/[^0-9]*$$//' \
+		-e '/PCP::PMDA->new/s/^[^0-9]*//p' pmda$(IAM).pl`; \
+	$(PCP_AWK_PROG) <$< '\
+	    BEGIN {\
+		domain = toupper("$(IAM)") \
+	    }\
+	    $$1=="\#define" && $$2 == domain { \
+		pmd=$$3; found++ \
+	    }\
+	    END {\
+		if (found == 0) {\
+		    print "Botch: no define for domain " domain " in $<"; \
+		    exit(1) \
+		}\
+	        if (found > 1) {\
+		    print "Botch: multiple defines of domain " domain " in $<";\
+		    exit(1) \
+		}\
+		if (pmd != "'"$$perldomain"'") {\
+		    print "Botch: domain number in ../../pmns/stdpmid (" pmd ") does not match domain number in Perl source ("'"$$perldomain"'")"; \
+		    exit(1) \
+		}\
+		exit(0) \
+	    }'
+
+POD_OPTIONS = --section=$(MAN_SECTION) --release=$(PCP_VERSION) \
+		--center="Performance Co-Pilot" --date="Performance Co-Pilot"
+POD_MAKERULE = $(POD2MAN) $(POD_OPTIONS) $^ $@
+
+ifeq "$(TARGET_OS)" "mingw"
+INSTALL_MAN =
+else
+INSTALL_MAN = \
+    test -z "$$MAN_PAGES" && MAN_PAGES="$(MAN_PAGES)"; \
+    for d in `echo $$MAN_PAGES`; do \
+	first=true; \
+	base=`echo $$d | sed -e 's/\.[0-9]//g'`; \
+        cat $$d | $(AWK) ' \
+	    BEGIN			{ do_print=0; print "'"$$base"'"; } \
+	    $$1 == ".ds"		{ ds["\\\\\\*\\("$$2] = $$3; } \
+	    /^\.SH NAME/		{ do_print=1; next } \
+	    $$1 == ".SH" && do_print	{ do_print=0; next } \
+	    do_print			{ if (match($$0, "^\\\\f3.*\\\\f1")) { \
+					    gsub ("\\\\f3", "", $$0); \
+					    gsub ("\\\\f1.*", "", $$0); \
+					    for ( d in ds ) { \
+						sub (d, ds[d], $$0); \
+					    } \
+					    print; } }' \
+		| LC_COLLATE=POSIX sort -u | \
+	while read m; do \
+	    [ -z "$$m" -o "$$m" = "\\" ] && continue; \
+	    t=$(MAN_DEST)/$$m.$(MAN_SECTION); \
+	    if $$first; then \
+		_tfx= ;\
+		if $(NEED_OLD_TBL_HEADER) ; then \
+		    $(SED) -e "1s/^'\\\\\"! tbl.*/'\\\\\" t/" $$d > $$d.tmp; _tfx=.tmp; \
+		fi; \
+		if $(HAVE_GZIPPED_MANPAGES) ; then \
+		    $(ZIP) -c $$d$$_tfx > $$d.gz; _tfx=.gz; _sfx=.gz; \
+		fi; \
+		if $(HAVE_BZIP2ED_MANPAGES) ; then \
+		    $(BZIP2) -c $$d$$_tfx > $$d.bz2; _tfx=.bz2; _sfx=.bz2; \
+		fi; \
+		u=$$m.$(MAN_SECTION)$$_sfx; \
+		echo $(INSTALL) -m 644 $${d}$$_tfx $${t}$$_sfx; \
+		$(INSTALL) -m 644 $${d}$$_tfx $${t}$$_sfx; \
+	    else \
+		if test ! -z $(CASE_INSENSITIVE_FS) -a $(CASE_INSENSITIVE_FS); then \
+		    if test "`echo $$u | tr 'a-z' 'A-Z'`" != "`basename $${t}$$_sfx | tr 'a-z' 'A-Z'`"; then \
+			echo $(INSTALL) -S $$u $${t}$$_sfx; \
+			$(INSTALL) -S $$u $${t}$$_sfx; \
+		    fi \
+		else \
+		    echo $(INSTALL) -S $$u $${t}$$_sfx; \
+		    $(INSTALL) -S $$u $${t}$$_sfx; \
+		fi \
+	    fi; \
+	    first=false; \
+	done; \
+    done
+endif
+
+PERL_MAKE_MAKEFILE = \
+	PCP_TOPDIR=$(TOPDIR); export PCP_TOPDIR;  \
+	TARGET_OS="$(TARGET_OS)" \
+	CC="$(CC) $(CFLAGS_ABI)" perl Makefile.PL $(MAKEMAKER_OPTIONS)
+
+PERL_GET_FILELIST = \
+	$(PERLMAKE) -f Makefile install DESTDIR=$$DIST_ROOT; \
+	find $$DIST_ROOT -name .packlist -exec mv '{}' $(1) ';' ; \
+	if [ -r $(1) ] ; then \
+	    sed -n -e '/\.bs$$/d' -e 's/\.[0-9]pm$$/&.gz/' -e "s@^$$DIST_ROOT@@p" -i.tmp $(1) || exit 1; \
+	fi; \
+	find $$DIST_ROOT -name perllocal.pod -exec rm -f '{}' ';' ; \
+	find $$DIST_ROOT -name \*.bs  -exec rm -f '{}' ';' ; \
+	find $$DIST_ROOT -name $(2).so -exec chmod 755 '{}' ';'
+
+#
+# For targets that should always be rebuilt,
+# define a target that is never up-to-date.
+# Targets needing this should depend on $(_FORCE)
+_FORCE = __force_build
+
+PCP_OWNER = root
+PCP_GROUP = root
+
+ifdef PCP_ALTLIBS
+ifeq ($(PCP_LIB_DIR),$(PCP_LIB32_DIR))
+PCP_ALTLIBS =
+else
+ifneq "$(findstring $(MAKECMDGOALS),clean clobber src-pcp)" ""
+PCP_ALTLIBS =
+endif
+endif
+endif
+
+
+PCP_X11_CFLAGS = 
+PCP_X11_LDFLAGS = 
+PCP_X11_EXTRALIBS = 
+PCP_X11_PRELIBS = 
+PCP_X11_APPDEFS_DIR = 
+
+GIT=
+
+endif # _BUILDDEFS_INCLUDED_

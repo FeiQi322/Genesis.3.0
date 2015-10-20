@@ -1,0 +1,158 @@
+#----------------------------------------------------------------
+# Makefile for compiling and linking genesis3.0 on LINUX clusters
+#----------------------------------------------------------------
+
+SHELL = /bin/sh
+.SUFFIXES: .F .o
+#.SILENT:
+
+#D = /iguana/s1/pollard/Genesis.3.0
+ D = /home/data01/pollard/Genesis.3.0
+#D = /home2/dxp21/Genesis.3.0
+#D = .
+
+#N = /usr/local/include
+#N = /usr/global/netcdf-3.5.1/include
+#N  = /iguana/s0/install/netcdf/netcdf-3.6.0-p1/src
+#N  = /iguana/s0/install/netcdf/netcdf-3.6.0-p1/src
+#NI = /iguana/s0/install/netcdf/netcdf_with_ifort/netcdf-3.6.0-p1/src/fortran
+#NA = /iguana/s0/install/netcdf/netcdf_with_ifort_2/netcdf-3.6.0-p1/lib
+ NI = /home/data01/pollard/include
+ NA = /home/data01/pollard/lib
+
+INCAGCM = $(D)/Agcm/*.h
+INCLSX = $(D)/Lsx/*.h
+INCEVE = $(D)/Eve/src3/*.h
+
+VPATH = .:$(D)/Agcm:$(D)/Lsx:$(D)/Eve/src3:$(D)/Agcm/Inline
+IPATH = -I. -I$(D)/Agcm -I$(D)/Lsx -I$(D)/Eve/src3 -I$(NI)
+#-----------------------------------------------------------------------
+
+#DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dlinux -Dnopack -Dneedfft -Dtablesvp
+
+#DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dlinux -Dnopack -Dneedfft -Dtablesvp -Domp
+
+ DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dlinux -Dnopack -Dneedfft -Dtablesvp -Domp -DNETCDF
+
+#DFLAGS = -DA_T31 -DS_2X2 -Dgcm -Dlinux -Dnopack -Dneedfft -Dtablesvp -Domp -DNETCDF -Disotrac
+
+
+#LINUXFLAGS = -w         -r8 -align -i-static
+ LINUXFLAGS = -w -openmp -r8 -align -i-static
+
+#LINUXLOADFLAGS =  -L/usr/local/lib -lnetcdf -ludunits -L/usr/local/mpich/1.2.5.2/intel/i686/lib -lmpich
+#LINUXLOADFLAGS =  -L/usr/local/lib -lnetcdf
+#LINUXLOADFLAGS = -z muldefs
+#LINUXLOADFLAGS =  -L/usr/global/netcdf-3.5.1/lib -lnetcdf
+ LINUXLOADFLAGS =  -L$(NA) -lnetcdf
+
+#OPT   = -O0 
+#OPT   = -O2
+ OPT   = -O3
+#OPT   = -fast
+
+ DEBUG = 
+#DEBUG = -g
+#DEBUG = -g -C
+
+ OPTC   = 
+#OPTC   = $(OPT)
+ DEBUGC = $(DEBUG)
+
+ FF = ifort
+
+ CC = cc
+
+#-----------------------------------------------------------------------
+
+genexe.exe: \
+	    genctl.o    cloud.o   convec.o  \
+	    filio.o    hisres.o   init.o    \
+	    radctl.o     radsolar.o    radir.o  \
+	    slth.o   spect.o    util.o   vdif.o \
+	    budlsx.o    inisurf.o   radlsx.o    soil.o      utilsx.o \
+	    lsx.o       sheet.o     surfctl.o   vegdat.o histlsx.o \
+	    ibis.o      ocean.o     snow.o      turlsx.o \
+	    dice.o \
+	    canopy.o gv.o inertial.o irf.o lais.o \
+	    leaf.o leaff.o rcd.o rwlf.o scf.o \
+	    inline.o   convert.o 
+	echo '** Linking genexe'
+
+	$(FF) $(OPT) $(LINUXFLAGS) -o genexe  \
+	    genctl.o    cloud.o   convec.o  \
+	    filio.o    hisres.o   init.o    \
+	    radctl.o     radsolar.o    radir.o  \
+	    slth.o   spect.o    util.o   vdif.o \
+	    budlsx.o    inisurf.o   radlsx.o    soil.o      utilsx.o \
+	    lsx.o       sheet.o     surfctl.o   vegdat.o histlsx.o \
+	    ibis.o      ocean.o     snow.o      turlsx.o \
+	    dice.o \
+	    canopy.o gv.o inertial.o irf.o lais.o \
+	    leaf.o leaff.o rcd.o rwlf.o scf.o \
+	    inline.o   convert.o              \
+	    $(LINUXLOADFLAGS)                  
+
+#-----------------------------------------------------------------------
+
+genctl.o: genctl.F   $(INCAGCM)
+cloud.o:  cloud.F    $(INCAGCM)
+convec.o: convec.F   $(INCAGCM)
+filio.o:  filio.F    $(INCAGCM)
+hisres.o: hisres.F   $(INCAGCM)
+init.o:   init.F     $(INCAGCM)
+radctl.o: radctl.F   $(INCAGCM)
+radsolar.o: radsolar.F  $(INCAGCM)
+radir.o: radir.F   $(INCAGCM)
+slth.o:   slth.F     $(INCAGCM)
+spect.o:  spect.F    $(INCAGCM)
+util.o:   util.F     $(INCAGCM)
+vdif.o:   vdif.F     $(INCAGCM)
+
+dice.o:    dice.F    $(INCLSX)
+budlsx.o:  budlsx.F  $(INCLSX)
+histlsx.o: histlsx.F $(INCLSX)
+inisurf.o: inisurf.F $(INCLSX)
+radlsx.o:  radlsx.F  $(INCLSX)
+soil.o:    soil.F    $(INCLSX)
+utilsx.o:  utilsx.F  $(INCLSX)
+lsx.o:     lsx.F     $(INCLSX)
+sheet.o:   sheet.F   $(INCLSX)
+surfctl.o: surfctl.F $(INCLSX)
+vegdat.o:  vegdat.F  $(INCLSX)
+ibis.o:    ibis.F    $(INCLSX)
+ocean.o:   ocean.F   $(INCLSX)
+snow.o:    snow.F    $(INCLSX)
+turlsx.o:  turlsx.F  $(INCLSX)
+
+canopy.o:   canopy.c   $(INCEVE)
+gv.o:       gv.c       $(INCEVE)
+inertial.o: inertial.c $(INCEVE)
+irf.o:      irf.c      $(INCEVE)
+lais.o:     lais.c     $(INCEVE)
+leaf.o:     leaf.c     $(INCEVE)
+leaff.o:    leaff.c    $(INCEVE)
+rcd.o:      rcd.c      $(INCEVE)
+rwlf.o:     rwlf.c     $(INCEVE)
+scf.o:      scf.c      $(INCEVE)
+
+inline.o: inline.F 
+convert.o: convert.c 
+
+
+#-----------------------------------------------------------------------
+
+ FFLINUX = -fpe0   # causes segfaults, fpes with openmp/flush (?)
+#FFLINUX =  
+
+.F.o:
+	echo '** Compiling $*.F'
+	$(FF) $(FFLINUX) $(LINUXFLAGS) $(OPT) $(DEBUG) $(DFLAGS) $(IPATH) -c $<
+
+#-----------------------------------------------------------------------
+
+.c.o:
+	echo '** Compiling $*.c'
+	$(CC) $(OPTC) $(DEBUGC) -Dlinux -c $<
+
+#-----------------------------------------------------------------------

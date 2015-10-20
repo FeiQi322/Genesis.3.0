@@ -1,0 +1,191 @@
+================================================================================
+GENESIS version 2.1 Notes.                                                 8/00.
+================================================================================
+
+A new GENESIS version 2.1 is available to users. There are many relatively 
+small differences from the old version 2.0.a. Some involve the model
+physics and default values of Namelist parameters, so the climate
+results are different from 2.0.a. However, with the appropriate Namelist 
+settings (see first bullet below), the results are very similar to before.
+
+Changes in the new version:
+===========================
+
+
+* To maintain very nearly the same climate results as version 2.0.a, it is
+  necessary to specify the following Namelist values, all in the second
+  (INPUTLSX) Namelist group:  
+    FICEMAXS = 0.94    (default in v2.1 is 0.92)
+    FICEMAXN = 0.998   (default in v2.1 is 0.92)
+    HICEEXP  = 3.0     (default in v2.1 is 0.5)
+  As mentioned below, it is also necessary to use PRIESTQ = .T. (or omit it, 
+  since .T. is the default) in the first Namelist group.  
+
+
+* The new version works on Sun (Solaris/SunOS) machines, compiled with the
+  appropriate makefile. However, unlike the Cray and SGI machines, it is
+  not possible to transparently exchange restart files between the Sun
+  and other machines. Postprocessing programs (access, convccm1, convnet)
+  have not yet been modified to work with the Sun version; this will require
+  some work since the Sun history files have record structure (pure "stream"
+  file i/o is not possible with Sun Fortran). Multiprocessing (OpenMP-type)
+  does not yet work with the Sun version.
+
+
+* With prescribed SSTs (OCEANTYPE = 0), it is now possible to specify 
+  SSTs "cyclically" for each year of a run, by providing a SST data input
+  file (SSTICE) containing monthly SST maps cycling through all years of 
+  the run. Set the Namelist parameter SEQSST to .T. to use this option 
+  (default=.F.).
+
+
+* There is an option to write NetCDF history files directly as the GCM runs.
+  To do this, set the Namelist variable HISNET to .T. (default = .F.).  
+  Namelist control of history file names and dates is unchanged; the only 
+  difference is that the AGCM and LSX history files will be in NetCDF 
+  format. (This is intended to replace the separate utility program CONVNET 
+  that converts regular Genesis binary history files to NetCDF).
+
+  If HISNET=.T., the suffix ".nc" is added automatically to all history 
+  file names, unless they are already given that suffix (or ".NC") by the
+  user's Namelist input. 
+
+* It is now possible to write a sequence of "storm-history" files, containing 
+  instantaneous agcm fields of topography, 500 mb heights, surface pressure, 
+  3-D air temperatures and 3-D vertical velocity at a given interval to a 
+  sequence of binary files, one file per month. Postprocessing tools are 
+  available to read these binary files. The relevant Namelist parameters are: 
+    STORMPATH = path name for storm history files (default = local directory).
+    STORMHIS  = file name prefix (appended with month and year).
+    STORMFREQ = time interval between writes, in hours (default = 12 hours).
+    NDENS_STORM = Cray packing density factor (default = 1).
+  If STORMHIS is not specified, no storm-history files are written.
+
+
+* Two new methods are available for specifying slab-ocean heat convergences 
+  (W/m2) due to ocean heat transport (OHT).
+    If QFACTOR < 0, zonally symmetric OHT values vs. lat. are read from a file.
+    If QFACTOR > 100, a global map of oceanic heat convergence values is read.
+    If QFACTOR >=0 and <= 100, the standard diffusive parameterization is used. 
+  More details on the first two methods are available in the Appendix below.
+
+
+* The Earth's rotation rate can now be specified, via DAYLEN (in hours,
+  default = 24). This *only* affects the Coriolis force in the atmospheric 
+  and sea-ice dynamics. The diurnal cycle is still 24 hours long, and there
+  are still 365 days per year.
+
+
+* The interactive-vegetation coupling with the EVE model has been streamlined 
+  and is much more user friendly. 
+
+
+* It is now possible to couple GENESIS interactively with EVE, BIOME, IBIS
+  and SDVM vegetation models.
+
+
+* The global mass correction in the Semi-Lagrangian Transport of water
+  vapor can now use a new algorithm. The old "Priestley" algorithm is still
+  an option, controlled by the Namelist parameter PRIESTQ = .F. (new) 
+  or .T. (old). The default is .T. and is still recommended for now.
+
+
+* The conventions for the year part of BASEDATE and ENDDATE are now:
+    If > 200,         assumed to be "AD".
+    If >= 0 & <= 200, assumed to be relative to 1900 AD, e.g., 100 = 2000 AD.
+    If <  0,          assumed to be "BP", i.e., relative to 1950 AD.
+
+
+* The trailing '/' in pathnames in the Namelist input is now optional.
+
+
+* History files and restart files are now read and written directly to the
+  path/filenames given in the Namelist. The local copies NDATA, NDATALSX and
+  NSRE are no longer used.
+
+
+* The LSX surface-model code has been re-organized to treat ice-sheet 
+  surfaces as a separate category, on a par with land, ocean, and sea ice.
+  This is transparent to the user, but will make it easier to add
+  more sophisticated ice-sheet surface physics in the future.
+
+
+David Pollard (pollard@essc.psu.edu).  8/18/00.
+
+--------------------------------------------------------------------------------
+
+Appendix: new Ocean Heat Transport options
+==========================================
+
+Ocean heat transport can now be prescribed for the slab ocean model in 
+Genesis version 2, as opposed to using the diffusive parameterization.
+This can be done in two ways, selected by setting the namelist QFACTOR
+either < 0 or > 100. Values between and including 0 and 100 select the
+standard diffusive method.
+
+QFACTOR < 0 (zonally symmetric q-flux):
+--------------------------------------
+
+The user supplies an ascii data input file called OHT.DAT in the local 
+directory. This file has 2 columns:
+* latitude in degrees N, and
+* total northward ocean heat transport (OHT) across a latitude circle,
+  in units of PetaWatts (10^15 Watts) (**not** Watts). 
+The file is read as Fortran list-directed, so no formatting is needed beyond 
+having each line contain two values, with or without decimal points, separated 
+by white space: a latitude followed by its corresponding OHT. The latitudes 
+in the file must increase from south to north. The latitudes do not have 
+to match the model grid...the program linearly interpolates the OHT's in 
+latitude, assuming 0 at the North and South Poles. The program converts the 
+interpolated OHT's to a (zonally symmetric) map of oceanic heat convergence 
+(W/m2), by combining with the specified land-ocean map.
+
+Note that the OHT values in OHT.DAT should correspond logically to the 
+specified land-ocean map. Otherwise, for instance, if non-zero OHT values occur 
+at latitudes with very little ocean in the zonal mean, huge values of heat 
+convergence may result. Similarly, for present-day-like geographies with 
+Antarctica at the South Pole, the first line of the OHT.DAT file should be 
+something like: 
+  -68.0   0.0
+i.e., specify a zero OHT value a little equatorward of the main Antarctic 
+continent. The first and last (highest-latitude) OHT values should usually 
+be zero, since the program will linearly interpolate from them to 0 at 
+each pole.
+
+The resulting heat convergences are then all multiplied by ABS(QFACTOR).
+So if you want values as specified in the OHT.DAT file, use QFACTOR = -1.
+Subsequent Norwegian-Sea and under-sea-ice adjustments will be made just 
+as for the diffusive parameterization, according to QNORWEG, QICES, QICEN, 
+and then an additive correction is applied equatorward of 56N and 56S to 
+make the global mean convergence zero. Set QNORWEG to 0, and QICES and/or 
+QICEN to any negative value, to turn these off. Their defaults are
+QNORWEG=500, QICES=6,QICEN=0. The resulting field can be checked using the 
+namelist SHOWMAPS = .T. (search the standard output file for 'q-flux' and 
+'heat flux').
+
+Note that the ocean heat transport is applied to any "ocean" point, i.e., 
+any point that is blank or zero (or 3) in the supplied land-ocean map.
+So Hudson Bay, the Mediterranean, Black and Caspian Seas for instance will 
+have ocean heat transport. This is not realistic. It can be avoided by using 
+an alternate method (qfactor > 100) described below.
+
+
+QFACTOR > 100 (global qflux map):
+--------------------------------
+
+The use supplies a Genesis-format ascii data input file called QFLUX in the 
+local directory, just as for Genesis v1.02. The values (in I5 format) are 
+ocean heat flux convergences at each ocean surface-grid point. The map should 
+correspond to the user-supplied land-ocean map (SURFTYP); any non-ocean points 
+according to SURFTYP will have their OHT values set to zero. The OHT values
+in the QFLUX file for isolated seas or lakes (Hudson Bay, Mediterranean, 
+Black, Caspian, etc.) should normally be 0. For display purposes they can also 
+be 9999, which the program will interpret as 0.
+
+The OHT values are all multiplied by QFACTOR - 100., so to use the values as 
+they are in the file, set QFACTOR = 101. Various adjustments are then made 
+just as for the other methods (QNORWEG, QICES and QICEN, additive correction 
+between +/- 56 deg), and the resulting map can be checked (SHOWMAPS = .T.),
+as described above.
+
+--------------------------------------------------------------------------------

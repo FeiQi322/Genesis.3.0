@@ -1,0 +1,871 @@
+#!/bin/csh -f
+
+# Sample main program illustrates the use of subroutine readfld
+# to access a 2-D slice of a history field from a GENESIS NetCDF
+# history file. Also includes all source code for subroutine readfld 
+# and lower-level routines (which should not need to be modified). 
+# This script and enclosed source code will run on Linux machines.
+#
+# The first section of Unix commands can be used to set the requested
+# file, field, period, etc. Then the source code is "cat-ed"
+# ("cat >! access.F << ENDaccess" to "ENDaccess"). The section
+# of Unix commands at the end of this file compiles, links  and runs
+# the program.
+
+#--------------
+
+# Need to set NI and NA (just below), and FFLAGS (near end)
+# depending on your system.
+
+# Set locations of NetCDF system files, netcdf.h (in $NI) and
+# libnetcdf.a (in $NA):
+ set NI = /usr/local/include
+ set NA = /usr/local/lib
+#set NI = /usr/global/netcdf-3.5.1/include
+#set NA = /usr/global/netcdf-3.5.1/lib
+
+#--------------
+
+# Set file, field, level, horizontal resolution, periods, etc.
+
+ set file    = '0K015LSX.nc'
+ set field   = 'WET1'
+ set level   = 1
+ set period1 = 1
+ set period2 = 1 
+ set resa = '2X2'        # R15, T31, T42, 2X2
+
+echo "file=$file  field=$field  level=$level  periods=${period1}-$period2"
+
+if ($resa == 'R15') then
+  set nlona = 48
+  set nlata = 40
+else if ($resa == 'T31') then
+  set nlona = 96
+  set nlata = 48
+else if ($resa == 'T42') then
+  set nlona = 128
+  set nlata = 64
+else if ($resa == '2X2') then
+  set nlona = 180
+  set nlata = 90
+else if ($resa == 'T106') then
+  set nlona = 320
+  set nlata = 160
+else if ($resa == 'RCM') then
+  set nlona = 135
+  set nlata = 92
+endif
+
+
+#--------------
+
+#set host = `hostname -s`
+#set hostpre = `echo $host | cut -b1-9`
+#
+#if ($hostpre == 'compute-0') set host = petrarch
+#if ($hostpre == 'compute-2') set host = condor
+#
+#if ($host == iguana) then
+#  set NI = /usr/include
+#  set NA = /usr/bin
+#else if ($host == lionxo) then
+#  set NI = /usr/global/netcdf-3.5.1/include
+#  set NA = /usr/global/netcdf-3.5.1/lib
+#else if ($host == condor) then
+#  set NI = /condor/opt/netcdf-3.5.1/include
+#  set NA = /condor/opt/netcdf-3.5.1/lib
+#else if ($host == petrarch) then
+#  set NI = /condor/opt/netcdf/include
+#  set NA = /condor/opt/netcdf/lib
+#else if ($host == luna) then
+#  set NI = /home/data01/pollard/include
+#  set NA = /home/data01/pollard/lib
+#else if ($host == uranus || $host == neptune) then
+#  set NI = /usr/local/include
+#  set NA = /usr/local/lib
+#else
+#  echo "unknown host $host"
+#  exit
+#endif
+
+#--------------
+
+# Process command line input
+
+set debug = 0
+
+foreach namin ($*)
+  switch ($namin)
+    case -d:
+      set debug = 1
+      breaksw
+  endsw
+end
+
+#--------------
+
+# Write source code file
+
+cat >! access.F << ENDaccess
+
+c=======================================================================
+
+c The main program accesstest below illustrates the use of subroutine
+c readfld, which accesses a Genesis or CCM1-3 history file in the local 
+c directory and returns a requested horizontal 2-D (longitude, latitude)
+c field of data into a passed array. 
+
+c This file contains:
+c  (1) Unix script at the beginning and end.
+c  (2) Main program "accesstest" as a simple example of calling readfld.
+c  (3) Source code for subroutine readfld, and other routines called
+c      only by readfld (readfile, upper, lenchr).
+
+c The main program is intended as a "starter" that the user can modify 
+c in many ways, for instance to add loops to access multiple files and
+c fields to form multiyear averages, to write out field data to ascii
+c flat files for input to plotting packages, etc. If multiple files are
+c accessed, readfld opens and closes them and forms internal lookup
+c tables automatically as needed.
+
+c *** Beyond understanding the arguments in the call to readfld, the
+c *** user need not be concerned with the code in readfld/readfile
+c *** at all.
+
+c The arguments in the call to readfld are described in detail at the
+c start of that subroutine. The meaning of the parameters and variables
+c in the main program should be apparent from those descriptions.
+
+c This file contains Unix script at its
+c start and end to compile, link and run the sample program, with
+c standard output sent to file "access.out".
+
+c The history file(s) either need to be in the local area, or the
+c path name needs to be included in the file name.
+
+c=======================================================================
+
+      program accesstest
+
+c Basic use of readfld to access a single horizontal (one-level, 2-D) 
+c field from a history file. The field is returned in array "arr", 
+c with user-specified horizontal resolutions "nlon" and "nlat". 
+
+      parameter (nlon=$nlona, nlat=$nlata)
+      dimension arr(nlon,nlat), 
+     *          surf(nlon,nlat), 
+     *          alon(nlon),  alat(nlat), weilat(nlat)
+      character cfile*80, cfield*80, cunits*8, title*80, maptit*80,
+     *          cform*16, coutfile*80
+      data iuhist, iuout, iulist, ioterm /15, 20, 6, 6/
+
+      cfile  = '$file'
+      cfield = '$field'
+
+c        Access file and return land/ocean map in array surf. 
+c        First try for "LMASK" (surface files)...if not found, try
+c        for "ORO" (agcm files) and convert to LMASK values.
+
+      call readfld 
+     *  (cfile,
+     *   'LMASK',     1,    1, nlon, nlat, nlev, nper,          !surface
+     *   surf, alon, alat, weilat, sigma, daynum, cunits, title,
+     *   iuhist, iulist, ioterm, iferr)
+
+      if (iferr.ne.0) then
+        call readfld 
+     *    (cfile,
+     *     'ORO',       1,    1, nlon, nlat, nlev, nper,           !agcm
+     *     surf, alon, alat, weilat, sigma, daynum, cunits, title,
+     *     iuhist, iulist, ioterm, iferr)
+        do j=1,nlat
+          do i=1,nlon
+            if (nint(surf(i,j)).eq.0) surf(i,j) = 3.
+          enddo
+        enddo
+      endif
+
+      if (iferr.eq.0) then
+        write (ioterm,'(/a)') 'land-ocean mask (LMASK or ORO):'
+        write (cform,"( '(',i4,'i1)' )") nlon
+        write (ioterm,cform) ((nint(surf(i,j)),i=1,nlon),j=nlat,1,-1)
+      else
+        do j=1,nlat
+          do i=1,nlon
+            surf(i,j) = 0.
+          enddo
+        enddo
+      endif
+
+c        Loop over periods
+
+c=======================================
+      do iperiod = ${period1},${period2}
+c=======================================
+
+c        Access file and return requested field in array arr
+      call readfld 
+     *  (cfile, cfield, iperiod, $level, nlon, nlat, nlev, nper,
+     *   arr, alon, alat, weilat, sigma, daynum, cunits, title,
+     *   iuhist, iulist, ioterm, iferr)
+
+      if (iferr.ne.0) goto 1000
+
+c        Diagnostic printout to stdout, redirected to access.out
+
+      if (iperiod.eq. $period1) then
+c       write(ioterm,50) 'longitudes:', alon
+c       write(ioterm,50) 'latitudes:',  alat
+c       write(ioterm,50) 'latitudinal weights (sum=1):',weilat
+   50   format(/1x,a/(10f8.3))
+        write(ioterm,*)
+        write(ioterm,*) 'sigma  = ', sigma
+        write(ioterm,*) 'daynum = ', daynum 
+        write(ioterm,*) 'year   = ', int (daynum/365. + 1. - .001)
+        write(ioterm,*) 'day    = ', mod (nint(daynum)-1, 365)  + 1
+        write(ioterm,*) 'cunits = ', cunits
+        write(ioterm,*) 'title  = ', title
+      endif
+
+      write (ioterm, "(/19('=')/'Doing period',i4,'...'/19('='))") 
+     *  iperiod
+
+      glob = 0.
+      do j=1,nlat
+        do i=1,nlon
+          glob = glob + weilat(j)*arr(i,j)
+        enddo
+      enddo
+      glob = glob/nlon
+      write (ioterm,*) 'Global mean of ', cfield(1:lenchr(cfield)), 
+     *   '= ', glob
+
+c       Write 1 header line and all field values to ascii output file
+
+      write (coutfile,"(a,'_',i2.2,'.dat')") cfield(1:lenchr(cfield)), 
+     *                                       iperiod
+      open (iuout, file=coutfile, status='unknown')
+      close (iuout, status='delete')
+      open (iuout, file=coutfile, status='new')
+
+      write(iuout,'(2a,2a,a,i4)') 
+     *     'file=',   cfile(1:lenchr(cfile)),
+     *  '   field=',  cfield (1:lenchr(cfield)),
+     *  '   period=', iperiod
+
+      write(iuout,'(a)') '   i   j     lon     lat'
+      do j=1,nlat
+        do i=1,nlon
+          write(iuout,'(2i4,2f8.2,e20.8)') i,j,alon(i),alat(j), arr(i,j)
+        enddo
+      enddo
+
+      close (iuout)
+
+
+ 1000 continue
+c==========
+      enddo
+c==========
+
+      stop
+      end
+
+c=======================================================================
+
+      subroutine readfld
+     *   (cfile, cfieldin, iperin, ilevin, nlon, nlat, nlev, nper,
+     *    arr, alon, alat, weilat, sigma, daynum, cunits, title, 
+     *    iuhist, iulist, ioterm, iferr)
+
+c Reads a single-level field from a history file, and returns it
+c in array "arr". The array is filled with longitude as the first
+c dimension (running eastward from Greenwich) and latitude as the
+c second (running south to north).
+
+c The history file must be in the local directory area with name
+c "cfile", and for Cray machines its Cray-I/O format must be "bin".
+c It can either be a Genesis-format history file or a standard
+c CCM1-3 format history file, (determined automatically by the contents
+c of the first record).
+
+c readfld can be called repeatedly for different fields, periods, 
+c levels, and/or different files (i.e., different "cfile"s as long as
+c they are present in the local directory). If different files are
+c requested, the local files are opened, indexed and closed
+c automatically as needed (done transparently by readfile 
+c which is called from readfld).
+
+c The requested period number "iperin" means the "iperin-th" history
+c write on the file.  For instance, if iperin = 5, the fifth history
+c write on the file has been requested.  If iperin is greater than the
+c total number of history writes, the last history write on the file
+c is accessed and a warning message is written.
+
+c The requested level "ilevin" increases downwards (1 = top model level,
+c etc). If ilevin exceeds the number of model levels for a field, the
+c bottom level is accessed and a warning message is written. 
+
+c The model's longitude and latitude grids are returned in "alon" and
+c "alat" (in degrees). Also, the latitudinal weights for area-averaging
+c are returned in "weilat", normalized so their sum = 1. The sigma
+c value of the single requested level is returned in "sigma".
+
+c The day number of the history write (relative to the basedate of 
+c the file) is returned in "daynum". For time-averaged fields, this 
+c is the end of the accumulation period.
+
+c The units-label of the requested field is returned in "cunits",
+c and the run-title of the history file is returned in "title".
+
+c "iuhist" is a logical unit number to be used for the local copy
+c of the history file. The user does not have to open this file,
+c but just needs to supply a value for iuhist that does not coincide
+c with any other unit numbers that may be in use by the user's calling
+c program.
+
+c Whenever a new file is accessed, a table of file information
+c (resolutions, field names, periods, etc.) is written to logical unit
+c number "iulist". The user's calling program should have opened an
+c ascii file with this unit number, or set iulist=6 (standard output).
+c If iulist < 0, no list is written.
+
+c Various error or warning messages are written to logical unit number
+c "ioterm". The user's calling program should have opened an ascii file
+c with this unit number, or set ioterm=6 (standard output).
+
+c iferr is an overall error flag. If the returned value is zero,
+c no errors have occurred.
+
+c Arguments:
+c cfile    local history file name           (character, supplied)
+c cfieldin requested field name              (character, supplied)
+c iperin   requested period number           (integer,   supplied)
+c ilevin   requested level  number           (integer,   supplied)
+c nlon     expected longitude resolution     (integer,   supplied)
+c nlat     expected latitude  resolution     (integer,   supplied)
+c nlev     # of vertical levels (this field) (integer,   returned)
+c nper     # of history writes (this file)   (integer,   returned)
+c arr      data array                        (real,      returned)
+c alon     longitude grid 1-D array, degrees (real,      returned)
+c alat     latitude  grid 1-D array, degrees (real,      returned)
+c weilat   latitudinal weights (sum = 1)     (real,      returned)
+c sigma    sigma value of requested level    (real,      returned)
+c daynum   day number of period end          (real,      returned)
+c cunits   field units label                 (character, returned)
+c title    run title label                   (character, returned)
+c iuhist   file unit # of history file       (integer,   supplied)
+c iulist   file unit # for file info table   (integer,   supplied)
+c ioterm   file unit # for error messages    (integer,   supplied)
+c iferr    error flag (0 if no error)        (integer,   returned)
+
+c-----------------------------------------------------------------------
+
+      character cfile*(*), cfieldin*(*), cunits*(*), title*(*)
+
+c     The data array arr is declared 1-D within readfld for convenience,
+c     but is assumed to be 2-D in the calling program with dimensions
+c     (nlon,nlat).
+
+      dimension arr(*), alon(*), alat(*), weilat(*)
+c-----------------------------------------------------------------------
+c     The common block "caccess" is shared between readfld and readfile,
+c      containing:
+c     (1) indices of all history writes on the file:
+c           indrec = record number of the first header record. 
+c           datea/b = start and end days (relative to base date).
+c     (2) indices for the current history write:
+c           cushis = field names
+c           cusuni = field unit labels
+c           mundex = relative record locations, etc.
+c           mushfl,mushco = misc. info, not used
+c     (3) isetpos = byte locations of all records on the file for 
+c                   the (local) subroutine setpos.
+
+      integer pfield, pdate
+      parameter (pfield=10000, pdate=10000)
+      common /caccess/
+     *  nulhdr, ndens, nurecl, nurecla, vershis, typehis, 
+     *  datea(pdate), dateb(pdate), indrec(pdate), ndate,
+     *  cushis(pfield), cusuni(pfield), 
+     *  mundex(4,pfield), mushfl(pfield), mushco(pfield), numfld,
+     *  isetpos(50000)
+      character cushis*8, cusuni*8, typehis*8
+c-----------------------------------------------------------------------
+      dimension itmp(2000), tmp(2000)
+      equivalence (itmp,tmp)
+      character ctmp(2000)*8
+      integer*8 itmpc(2000)
+      equivalence (itmpc,ctmp)
+
+      dimension blon(1000), blat(1000), bwei(1000), sig(1000)
+
+      character cfileprev*80, cfield*8
+      save iperprev, cfileprev, mlon, mlat, mlev,
+     *     blon, blat, bwei, sig
+      data iperprev, cfileprev /0,' '/
+c-----------------------------------------------------------------------
+c===========
+c for netcdf:
+      include '/usr/local/include/netcdf.inc'
+      integer*4  ncid, varid, rcode,
+     *           lonid,latid,levid,timid,mlon4,mlat4,mlev4,ntim4,ndims,
+     *           start(3), count(3), starta(4), counta(4)
+      real*4 alon4(1000), alat4(1000), alev4(1000), atim4(1000),
+     *       var4(360*180)
+      character*80 function nf_strerror
+      common /cnetc/ ncid, start, count, starta, counta
+c===========
+c-----------------------------------------------------------------------
+
+      iferr = 0 
+
+c If this history file was not the one accessed in the call immediately
+c prior to this one, call readfile to open it and compile indices
+c of its periods (aka history writes) and records 
+
+      if (cfile.ne.cfileprev) then
+         call readfile_nc (cfile, title, mlon, mlat, mlev, 
+     *                     blon, blat, bwei, sig, 
+     *                     iulist, ioterm, iferr)
+         iperprev = 0
+         if (iferr.ne.0) return
+         cfileprev = cfile
+      endif
+
+      if (nlon.ne.mlon .or. nlat.ne.mlat) then
+         write (ioterm,800) cfile(1:lenchr(cfile)),nlon,nlat,mlon,mlat
+  800    format(/'*** Error in readfld for file ',a
+     *          /'    Expected resolutions (nlon,nlat) = ',2i6
+     *          /'    Actual   resolutions (mlon,mlat) = ',2i6/)
+         iferr = 1
+         return
+      endif
+
+c        Copy grids to user-passed arrays. (Local arrays blon,blat,bwei
+c        were used to call readfile in case nlon<mlon or nlat<mlat)
+
+      do 10 i=1,mlon
+        alon(i) = blon(i)
+   10 continue
+      do 12 j=1,mlat
+        alat(j) = blat(j)
+        weilat(j) = bwei(j)
+   12 continue
+
+c Check that requested period number is within bounds; set daynum,nper
+
+      iper = max (1, min (ndate, iperin))
+      if (iper.ne.iperin) then
+         write (ioterm,805) cfile(1:lenchr(cfile)), ndate, iperin, iper
+  805    format(/'*** Warning in readfld for file ',a
+     *          /'    Number of periods (history writes) on file = ',i6
+     *          /'    Requested period number',i6,' changed to', i6)
+      endif
+
+      nper = ndate
+      daynum = dateb(iper)
+
+      cfield = cfieldin
+      ifrange1 = 0
+      ifrange2 = 0
+
+c==============
+c version 1.02:
+c==============
+c To request a min, max, or range field, the last four characters of the
+c input file name should be _MIN, _MAX, or _RAN, respectively.
+c In Genesis history files, these triplets are compressed into a single
+c field whose name ends in _R. So if one of these fields is
+c requested, "cfield" is changed to ..._R and the toggle ifrange1 is set
+c to 1=min, 2=max, 3=range. Then if ifrange1 > 0, the field will be
+c uncompressed further below.
+c
+c     i2 = lenchr(cfield)         
+c     i1 = max (1, i2-3) 
+c     if (cfield(i1:i2).eq.'_MIN') then
+c       cfield(i1:) = '_R'
+c       ifrange1 = 1
+c     else if (cfield(i1:i2).eq.'_MAX') then
+c       cfield(i1:) = '_R'
+c       ifrange1 = 2
+c     else if (cfield(i1:i2).eq.'_RAN') then
+c       cfield(i1:) = '_R'
+c       ifrange1 = 3
+c     endif
+c
+c=============
+c version 2.0:
+c=============
+c
+      i2 = lenchr(cfield)         
+      i1 = max (1, i2-3) 
+      if (cfield(i1:i2).eq.'_MIN') then
+        cfield(i1:) = '_M'
+        ifrange2 = 1
+      else if (cfield(i1:i2).eq.'_MAX') then
+        cfield(i1:) = '_M'
+        ifrange2 = 2
+      endif
+c=============
+
+      ilev = max (1, min (ilevin, nlev))
+      if (ifrange2.ne.0) ilev = ifrange2   ! reset ilev for min/max (v2)
+
+c Read field data
+
+c        Get number of dimensions
+
+      rcode = nf_inq_varid (ncid, cfield, varid)
+      rcode = nf_inq_varndims (ncid, varid, ndims)
+
+c        Read data slice
+
+      if (ndims.eq.4) then
+c       write (6,*) 'ndims=',ndims, '  level=',level,'  nlev=',nlev
+        nlev = mlev
+        sigma = sig(ilev)
+        starta(3) = ilev
+        counta(3) = 1   
+        starta(4) = iper
+        counta(4) = 1   
+        rcode = nf_get_vara_real (ncid, varid, starta, counta, var4)
+c       if (rcode.ne.nf_noerr) write (6,'(a)') nf_strerror(rcode)
+      else
+        nlev = 1
+        sigma = 1.
+        start(3) = iper
+        count(3) = 1   
+        rcode = nf_get_vara_real (ncid, varid, start, count, var4)
+c       if (rcode.ne.nf_noerr) write (6,'(a)') nf_strerror(rcode)
+      endif
+      do i=1,nlon*nlat
+        arr(i) = var4(i)
+      enddo
+
+c        Set units 
+
+      rcode = nf_get_att_text (ncid, varid, 'units', cunits)
+      do i=len(cunits),1,-1
+        if (cunits(i:i).eq.char(0)) cunits(i:i) = ' '
+      enddo
+
+c If min/max/range field requested, then unpack field (version 1.02)
+
+      if (ifrange1.eq.1) then
+        do 74 i=1,mlon*mlat
+          zmax = mod(arr(i),1.e6) / 100.
+          arr(i) = (arr(i)-zmax*100.) / 1.e8
+   74   continue
+      else if (ifrange1.eq.2) then
+        do 75 i=1,mlon*mlat
+          arr(i) = mod(arr(i),1.e6) / 100.
+   75   continue
+      else if (ifrange1.eq.3) then
+        do 76 i=1,mlon*mlat
+          zmax = mod(arr(i),1.e6) / 100.
+          zmin = (arr(i)-zmax*100.) / 1.e8
+          arr(i) = zmax-zmin
+   76   continue
+      endif
+
+      return
+
+c        Error messages
+
+  910 write (ioterm,912) cfile(1:lenchr(cfile))
+  912 format(/'*** Error in readfld for file ',a)
+      iferr = 1
+      return
+
+  920 write (ioterm,922) cfile(1:lenchr(cfile)), cfield, iper
+  922 format(/'*** Error in readfld for file ',a
+     *       /'    Field ',a,' is absent for period #',i6)
+      iferr = 1
+      return
+
+  930 write (ioterm,932) cfile(1:lenchr(cfile)), cfield, iper, irec,
+     *                   iera, ierb
+  932 format(/'*** Error in readfld for file ',a
+     *       /'    Error reading data record for field ',a,
+     *       /'    period =',i6,'   record # =',i6,
+     *        ' iera=',i6,'  ierb=',i6/)
+      iferr = 1
+      return
+
+  940 write (ioterm,942) cfile(1:lenchr(cfile)), cfield, iper, irec, ios
+  942 format(/'*** Error in readfld for file ',a
+     *       /'    Error reading data record for field ',a,
+     *       /'    period =',i6,'   record # =',i6,'   iostat=',i6/)
+      iferr = 1
+      return
+
+      end
+
+c=======================================================================
+
+      subroutine readfile_nc (cfile, title, mlon, mlat, mlev, 
+     *                        alon, alat, weilat, sig, 
+     *                        iulist, ioterm, iferr)
+
+c cfile    local history file name              (character, supplied)
+c title    run title label                      (character, returned)
+c mlon     actual longitude resolution          (integer,   returned)
+c mlat     actual latitude  resolution          (integer,   returned)
+c mlev     actual vertical  resolution          (integer,   returned)
+c alon     longitude grid values,degrees        (real,      returned)
+c alat     latitude  grid values,degrees        (real,      returned)
+c weilat   latitudinal weights                  (real,      returned)
+c sig      vertical grid values, returned       (real,      returned)
+c iuhist   file unit # of history file          (integer,   supplied)
+c iulist   file unit # for file info table      (integer,   supplied)
+c ioterm   file unit # for error messages       (integer,   supplied)
+c iferr    error flag (0 if no error)           (integer,   returned)
+
+      character cfile*(*), title*(*)
+      dimension alon(*), alat(*), weilat(*), sig(*)
+
+      integer pfield, pdate
+      parameter (pfield=10000, pdate=10000)
+      common /caccess/
+     *  nulhdr, ndens, nurecl, nurecla, vershis, typehis, 
+     *  datea(pdate), dateb(pdate), indrec(pdate), ndate,
+     *  cushis(pfield), cusuni(pfield), 
+     *  mundex(4,pfield), mushfl(pfield), mushco(pfield), numfld,
+     *  isetpos(50000)
+      character cushis*8, cusuni*8, typehis*8
+
+c        Opens local history file cfile. Sets mlon and mlat.
+
+c===========
+c for netcdf:
+      include '/usr/local/include/netcdf.inc'
+      integer*4  ncid, varid, rcode,
+     *           lonid,latid,levid,timid,mlon4,mlat4,mlev4,ntim4,ndims,
+     *           start(3), count(3), starta(4), counta(4)
+      real*4 alon4(1000), alat4(1000), alev4(1000), atim4(1000),
+     *       var4(360*180)
+      character*80 function nf_strerror
+      common /cnetc/ ncid, start, count, starta, counta
+c===========
+
+      logical ifexist
+
+      iferr = 0
+
+c        Test if file to be opened exists
+
+      inquire (file=cfile, exist=ifexist)
+      if (.not.ifexist) then
+        write (ioterm,699) cfile(1:lenchr(cfile))
+  699   format(/'*** Error: NetCDF history file ',a,' not found')
+        stop
+      endif
+
+c        Open existing file
+
+      rcode = nf_open (cfile, ncnowrite, ncid)
+
+c        Get grid axes
+
+      rcode = nf_inq_dimid (ncid,  'lon',  lonid)
+      rcode = nf_inq_dimlen (ncid, lonid, mlon4)
+      rcode = nf_inq_varid (ncid,  'lon',  varid)
+      rcode = nf_get_var_real (ncid, varid, alon4)
+
+      rcode = nf_inq_dimid (ncid,  'lat',  latid)
+      rcode = nf_inq_dimlen (ncid, latid, mlat4)
+      rcode = nf_inq_varid (ncid,  'lat',  varid)
+      rcode = nf_get_var_real (ncid, varid, alat4)
+
+      rcode = nf_inq_dimid (ncid,  'lev',  levid)
+      if (rcode.ne.nf_noerr) then
+         mlev4 = 1
+      else
+        rcode = nf_inq_dimlen (ncid, levid, mlev4)
+        rcode = nf_inq_varid (ncid,  'lev',  varid)
+        rcode = nf_get_var_real (ncid, varid, alev4)
+      endif
+      mlev4 = max (mlev4, 2)    ! for ts2_m, etc
+
+
+      rcode = nf_inq_dimid (ncid,  'time',  timid)
+      rcode = nf_inq_dimlen (ncid, timid, ntim4)
+      rcode = nf_inq_varid (ncid,  'time',  varid)
+      rcode = nf_get_var_real (ncid, varid, atim4)
+
+      mlon = mlon4
+      do i=1,mlon
+        alon(i) = alon4(i)
+      enddo
+
+      mlat = mlat4
+      do j=1,mlat
+        alat(j) = alat4(j)
+        weilat(j) = 1./mlat
+      enddo
+
+      mlev = mlev4
+      if (mlev.gt.2) then
+        do k=1,mlev
+          sig(k) = alev4(k)
+        enddo
+      else
+        sig(1) = 0.
+        sig(2) = 1.
+      endif
+
+      ndate = ntim4
+      if (ndate.eq.1) then
+        datea(1) = atim4(1) - 0.5
+        dateb(1) = atim4(1) + 0.5
+      else
+        do m=2,ndate
+          datea(m) = 0.5*(atim4(m-1)+atim4(m))
+        enddo
+        do m=1,ndate-1
+          dateb(m) = 0.5*(atim4(m+1)+atim4(m))
+        enddo
+        datea(1)     = 1.5*atim4(1)     - 0.5*atim4(2)
+        dateb(ndate) = 1.5*atim4(ndate) - 0.5*atim4(ndate-1)
+      endif
+
+      start(1) = 1
+      count(1) = mlon
+      start(2) = 1
+      count(2) = mlat
+
+      starta(1) = 1
+      counta(1) = mlon
+      starta(2) = 1
+      counta(2) = mlat
+
+c        Get run title
+
+      rcode = nf_get_att_text (ncid, nf_global, 'title', title)
+      do i=1,len(title)
+       if (ichar(title(i:i)).lt.32 .or.
+     *     ichar(title(i:i)).gt.126    ) title(i:i) = ' '
+      enddo
+
+c if requested, print out list of fields in this history file
+
+      if (iulist.ge.0) then
+        write (iulist,*)
+        write (iulist,700)
+  700   format(73('='))
+
+        write (iulist,705) cfile(1:lenchr(cfile))
+  705   format('File name       : ',a)
+
+        write (iulist,740) mlon,mlat,mlev
+  740   format('Resolutions     : lon=',i3,'   lat=',i3,'   lev=',i3)
+
+        write (iulist,750) title(1:lenchr(title))
+  750   format('Run title       : ',a)
+
+        write (iulist,770) (i, datea(i),dateb(i), i=1,ndate)
+  770   format(/'Periods:'/ ( 3(i4,': (',f7.1,',',f7.1,')',2x) ) )
+
+        write (iulist,700)
+        ier = flush(iulist)
+      endif
+
+      return
+      end 
+
+c=======================================================================
+
+      subroutine upper (cin)
+
+c        Upper-cases character string cin
+
+      character*(*) cin
+
+      ia = ichar('a')
+      iz = ichar('z')
+      ishif = ichar('A') - ichar('a')
+
+      do 10 i=1,len(cin)
+        if (ichar(cin(i:i)).ge.ia .and. ichar(cin(i:i)).le.iz)
+     *    cin(i:i) = char (ichar(cin(i:i)) + ishif)
+   10 continue
+
+      return
+      end
+
+c=======================================================================
+
+      function lenchr (ch)
+
+c        Returns position of last non-blank character in ch, 
+c        or 1 if ch is all blanks.
+
+      character*(*) ch
+
+      do 10 i=len(ch),1,-1
+         if (ch(i:i).ne.' ') then
+            lenchr = i
+            return
+         endif
+   10 continue
+
+      lenchr = 1
+      return
+      end
+
+ENDaccess
+
+#=======================================================================
+
+
+# Compile and link
+
+
+if ($debug == 0) then
+  set deb = ' '
+else
+  set deb = -g
+endif
+
+#if ($host == condor) then
+#  set FF = /condor/opt/intel_fc_80_32bit/bin/ifort
+#else if ($host == uranus || $host == neptune) then
+#  set FF = /opt/intel/fce/9.0/bin/ifort 
+#else
+  set FF = ifort
+#endif
+
+# May need to set -i-static and/or -align depending on linux system:
+
+ set FFLAGS = ''
+ set FFLAGS = "$FFLAGS -i-static"
+ set FFLAGS = "$FFLAGS -align"
+
+#if ($host == luna) then
+#  set FFLAGS = -i-static
+#else
+#  set FFLAGS = ''
+#endif
+
+$FF $FFLAGS $deb -r8  -o access.exe access.F -L${NA} -lnetcdf
+if ($status != 0) exit(0)
+
+# Run program
+
+rm -f access.out
+
+if ($debug == 0) then
+  access.exe >&! access.out
+  rm -f access.F access.o access.exe
+else
+  rm -f core
+ #if ($host == 'sun') then
+ #  dbx access.exe
+ #else
+    gdb access.exe
+ #endif
+endif
+
+exit(0)

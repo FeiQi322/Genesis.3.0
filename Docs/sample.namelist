@@ -1,0 +1,96 @@
+
+        Figure 2:  Example of NAMELIST (User-Settable) Input
+        ====================================================
+
+ ; nb: Column 1 is ignored except for an optional echo flag "E".
+ ; nb: Any text from ";" to the end of the line is a comment.
+
+E\$INPUT
+
+ ;            '----------------------'
+  RUNTITLE  = 'V2 sample run ...'
+
+  NSREST    = $nsrest
+
+  BASEDATE  = '101/01/01'       ; '1010101' would be equivalent
+  ENDDATE   = '101/01/01'       ; year number (101) is from 1900 AD if positive,
+                                ; from 1950 AD if negative (years BP)
+
+ ;MSPATHIN  = '/POLLARD/CONB/' ;appropriate for NSREST = 0
+ ;MSNAMIN   = 'CONB014RES'     ;" " " " " " " " " " " " " 
+  MSNAMIN   = 'nsretest'       ;appropriate for NSREST=1 and MSNAMRE2='nsretest'
+
+  MSNAMHIS  = 'TEST001','TEST002','TEST003','TEST004','TEST005',
+              'TEST006','TEST007','TEST008','TEST009','TEST010',
+              'TEST011','TEST012','TEST013','TEST014','TEST015',
+              'TEST016','TEST017','TEST018','TEST019','TEST020',
+              'TEST021','TEST022','TEST023','TEST024','TEST025',
+              'TEST026','TEST027','TEST028','TEST029','TEST030'
+  MSNAMRE2  = 'nsretest'
+
+  MSPATH    = '$mspath'
+
+  PASSWD    = '<your MSS write-password>'
+  RETPD     = 2000                                ; MSS retention period in days
+
+  NSAVE     =     90,     181,     273,      365  ; save every 3 months
+ ;NSAVE     = '3/31',  '6/30',  '9/30',  '12/31'  ; equivalent, for Crays only
+
+  NNEXF     = 365                                 ; next-file at each year-end
+
+ ;NHISI     = 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 ; monthly
+  NHISI     = 1                                                       ; daily
+  NDHIS     = 0
+  CUSHNAM   = 'ORO*    ',  'TOPOG*  ',
+              'PS      ',  'PSLEV   ',  'Z200    ',  'Z500    ',
+              'T       ',  'Q       ',  'U       ',  'V       ',
+              'HFLR    ',  'QFLR    ',  'PRECL   ',  'PRECC   ',
+              'SOLIN   ',  'SABTP   ',  'SABAT   ',  'FIRTP   ',
+              'FRSAV   ',  'FRSAN   ',  'FRSIV   ',  'FRSIN   ',
+              'TOTCLD  '
+
+  OCEANTYPE =   0
+  DEPTHICE  =  10.  DEPTHSNO =  3. 
+
+  SHOWMAPS  = .F.   BUDFREQ  = 365.
+  LONOLSX   = -61   LATOLSX  = -1     TIMOLSX  = 0.
+
+  STOCHPR   = .T.
+
+  DELEVTYPE = 2
+
+  VEGTYPE = $vegtype
+
+ \$END
+
+ ;----------------------------------------------------------------------
+
+E\$RADOTG
+
+  SOLFAC  = 1.
+  SOLPAR  = 1365.   ; AMIP present day
+  CO2PPM  = 345.    ; AMIP                ~ years 1984-1985
+  CH4PPM  = 1.653   ; IPCC 1990 Table 1.1 ~ years 1984-1985
+  N2OPPM  = 0.306   ; IPCC 1990 Table 1.1 ~ years 1984-1985
+  F11PPB  = 0.238   ; IPCC 1990 Table 1.1 ~ years 1984-1985
+  F12PPB  = 0.408   ; IPCC 1990 Table 1.1 ~ years 1984-1985
+
+ \$END
+
+ ;----------------------------------------------------------------------
+
+E\$INPUTLSX
+
+  CUSHNAM_A = 'LMASK*  ',  'HOCEAN* ',  'FWATER* ',
+              'TS      ',  'TA      ',  'TS2     ',  'TS2_M   ',
+              'WET1    ',  'WET2    ',  'WET3    ',
+              'WET4    ',  'WET5    ',  'WET6    ',
+              'WICE1   ',  'WICE2   ',  'WICE3   ',
+              'WICE4   ',  'WICE5   ',  'WICE6   ',
+              'SNOWH   ',  'SNOWF   ',  'ICEH    ',  'ICEF    ',
+              'RUNOFF  ',  'DRAIN   ',  'TRANSP  ',  'AVAP    ',
+              'TAUX    ',  'TAUY    ',
+              'PRECIP  ',  'WPUD    ',  'WIPUD   ',
+              'LAIT*   ',  'SAIT*   '
+
+ \$END

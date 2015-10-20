@@ -1,0 +1,52 @@
+VEGT          96      48        lsx veg type (D-S, v.2)
+
+     -178      -141      -103       -66       -28         9        47        84       122       159
+
+ 88.1                                                                                                   
+ 84.4                                       AAAAA                                                       
+ 80.6                         AAAAA AAA          AAA       AA                                           
+ 76.9                   AAAAAAAAAA   A            A         A                    AAAAA       A          
+ 73.1                  AAAAA AAAAAAA             AA                   A   AAAAAAAAAAAAAAAA   5AA        
+ 69.4   A   AAAAAAAAAAAAAAAAAAAAAAAAAA   AA     AA          AAAAAA   44AAAAAAAAAAAAAA55555AAAAAAAAAAA5AA
+ 65.6   AA  AA444444444444AAAAAAAA AAAA   A   A   AA       AAA44444444AAAAAAAA555555555555555555555AAAAA
+ 61.9       AAAAAAA44A4444444AA    AAAA                  AA44444444444444444444445555555555555555554444 
+ 58.1        AA    44A4333444444   AA444              C   333 33334444444444444444444555555555    44    
+ 54.4               44444333344444 444444            CCC  C3343333322CC44CC22C4444444455555555   44     
+ 50.6                 4444CCCC44444444444              CCCCCCC222C7777CCCCC77C44444444B5555554          
+ 46.9                  444477CCCCC333333 3             CCCCCCCCCCC7CCC99999999B44BBBBBBBBC333           
+ 43.1                  888877CCCCCCCCC                CCCC3333CC  CCC 9999BBBBBBBBBBBBB33C33 44         
+ 39.4                  888844CCCCCCC                 CCC    CCCCCC777 9999CCBBBBBBBBBBCCCC   3          
+ 35.6                  999477CCCCCCC                  8777C     777CCCBBBBAAAAAAAAACCCCC  1111          
+ 31.9                    99888CCC44                  8BBBBBBBBBBBBB777BBBBACCAAAAAAAB3CCC               
+ 28.1                    99888C   4                 88BBBBBBBBBBBBB777BBBBACCAAAAAAAB3CC                
+ 24.4                     9888                      99BBBBBBBBBBBBBBBBBB BCCCCCAA13CCCCC                
+ 20.6                       48  1  1               99BBBBBBBBB9BBBBBBB77   CCCCC22111C                  
+ 16.9                        C111                  888888BBBBB9BB88BBBB    CCC   2111   1               
+ 13.1                           C1                 666688888888888899       CC    C22   1               
+  9.4                            1111166            666666666666668888      CC    C C    7              
+  5.6                              1161111           1166666666666688             11   7                
+  1.9                              11111111               1116166688              11 111                
+ -1.9                             11111111111             111117768                1 1111  111          
+ -5.6                             1111111116688            66667766                 1       111         
+ -9.4                              111111166688            66662266                          1 1        
+-13.1                              88811166666             22222266                       66  1         
+-16.9                               BB66666666             2222CC66 6                    666666         
+-20.6                                78666666              9962666 77                  99B999966        
+-24.4                                8866666                99666   7                 99999999766       
+-28.1                                886688                 999CC                     88889999666       
+-31.9                                88668                   99C                       8889999666       
+-35.6                               888CC                                                   6661        
+-39.4                               888C                                                      6       3 
+-43.1                               388                                                        6     3  
+-46.9                               38                                                                  
+-50.6                               28                                                                  
+-54.4                               77                                                                  
+-58.1                                                                                                   
+-61.9                                                                                                   
+-65.6                                                                                                   
+-69.4                                                                                                   
+-73.1                                                                                                   
+-76.9                                                                                                   
+-80.6                                                                                                   
+-84.4                                                                                                   
+-88.1                                                                                                   

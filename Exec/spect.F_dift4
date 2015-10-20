@@ -1,0 +1,3699 @@
+c -- $Id: spect.F,v 1.2 2001/07/03 21:29:21 bill Exp $
+c -- $Source: /usr/local/portgcm/src/cvsroot/genesis.2.2/Agcm/spect.F,v $
+c -- $Name:  $
+
+C
+C ***************************** BSSLZR ********************************
+C
+      SUBROUTINE BSSLZR (BES,N)
+C----------------------------------------------------------------------
+C
+CL            RETURN N ZEROS, OR IF N>50 APPROXIMATE ZEROS,
+CL            OF THE BESSEL FNTNS J0, IN THE ARRAY BES.
+CL            THE FIRST 50 ZEROS WILL BE GIVEN EXACTLY, AND
+CL            THE REMAINING ZEROS WILL BE COMPUTED BY EXTRAPOLATION, AND
+CL            THEREFORE NOT EXACT.
+C
+C----------------------------------------------------------------------
+C
+      DIMENSION BES(N), BZ(50)
+C
+      DATA PI/3.14159265358979/
+      DATA BZ           / 2.4048255577,   5.5200781103,
+     X    8.6537279129,  11.7915344391,  14.9309177086,  18.0710639679,
+     X   21.2116366299,  24.3524715308,  27.4934791320,  30.6346064684,
+     X   33.7758202136,  36.9170983537,  40.0584257646,  43.1997917132,
+     X   46.3411883717,  49.4826098974,  52.6240518411,  55.7655107550,
+     X   58.9069839261,  62.0484691902,  65.1899648002,  68.3314693299,
+     X   71.4729816036,  74.6145006437,  77.7560256304,  80.8975558711,
+     X   84.0390907769,  87.1806298436,  90.3221726372,  93.4637187819,
+     X   96.6052679510,  99.7468198587, 102.8883742542, 106.0299309165,
+     X  109.1714896498, 112.3130502805, 115.4546126537, 118.5961766309,
+     X  121.7377420880, 124.8793089132, 128.0208770059, 131.1624462752,
+     X  134.3040166383, 137.4455880203, 140.5871603528, 143.7287335737,
+     X  146.8703076258, 150.0118824570, 153.1534580192, 156.2950342685/
+C
+      NN = N
+      IF (N.GT.50) THEN
+         BES(50) = BZ(50)
+         DO 5 J=51,N
+            BES(J) = BES(J-1) + PI
+5        CONTINUE
+         NN = 49
+      ENDIF
+      DO 15 J=1,NN
+         BES(J) = BZ(J)
+15    CONTINUE
+      RETURN
+      END
+C
+C ***************************** COMHEG ********************************
+C
+      SUBROUTINE COMHEG (A,N,K,L,INTA)
+C----------------------------------------------------------------------
+C
+CL            REDUCE COMPLEX MATRIX A TO UPPER HESSENBURG MATRIX A
+C
+C----------------------------------------------------------------------
+C
+      DIMENSION A(N,N),INTA(N)
+C
+      COMPLEX X,XX,Y,A
+C
+      LA = L - 1
+      M1 = K + 1
+      DO 100 M=M1,LA
+         I = M
+         X = (0.0,0.0)
+         DO 10 J=M,L
+            IF (ABS(A(J,M-1)).GT.ABS(X)) THEN
+               X = A(J,M-1)
+               I = J
+            ENDIF
+   10    CONTINUE
+         INTA(M) = I
+         IF (I.NE.M) THEN
+            J1 = M - 1
+            DO 20 J=J1,N
+               Y = A(I,J)
+               A(I,J) = A(M,J)
+               A(M,J) = Y
+   20       CONTINUE
+            DO 30 J=1,L
+               Y = A(J,I)
+               A(J,I) = A(J,M)
+               A(J,M) = Y
+   30       CONTINUE
+         ENDIF
+         IF (X.NE.(0.0,0.0)) THEN
+ 
+c           Fix to prevent divide-by-zero for sgi speculative execution
+c           (safe since abs(x) is always O(1) or bigger)
+            if (abs(x).lt.1.e-10) then
+              xx = (1.e-9,1.e-9)
+            else
+              xx = (0.,0.)
+            endif
+ 
+            I1 = M + 1
+            DO 80 I=I1,L
+               Y = A(I,M-1)
+               IF (Y.NE.(0.0,0.0)) THEN
+c                 Y = Y/X
+                  Y = Y/(x+xx)
+                  A(I,M-1) = Y
+                  DO 50 J=M,N
+                     A(I,J) = A(I,J) - Y*A(M,J)
+   50             CONTINUE
+                  DO 60 J=1,L
+                     A(J,M) = A(J,M) + Y*A(J,I)
+   60             CONTINUE
+               ENDIF
+   80       CONTINUE
+         ENDIF
+  100 CONTINUE
+      RETURN
+      END
+C
+C ***************************** COMLRG *********************************
+C
+      SUBROUTINE COMLRG (H,W,NC)
+C----------------------------------------------------------------------
+C
+CL            CALCULATE W, EIGENVALUES OF UPPER HESSENBURG MATRIX H
+C
+C----------------------------------------------------------------------
+C
+C        SAVE STMT FOR CFT77 IS NEEDED SINCE COMDECK PARAMS IS NOT USED
+C
+      REAL A,SR,SI,TR,TI,XR,YR,ZR,XI,YI,AREAL,EPS
+      COMPLEX H,W,S,T,X,Y,Z,U
+      DIMENSION H(NC,NC),W(NC)
+C
+      SAVE A,SR,EPS,ITEST,NFAIL
+      DATA ITEST/0/
+      DATA NFAIL/30/
+C
+      IF (ITEST.EQ.0) THEN
+         A = 1
+5        CONTINUE
+         EPS = A
+         SR = 1 + A
+         A = A/2.0
+         IF (SR.NE.1.0) GO TO 5
+         ITEST = 1
+      ENDIF
+      IF (NC.LE.0) THEN
+         CALL MESAGE(40HCOMLRG ENTERED WITH INCORRECT DIMENSION  )
+         CALL IVAR(8HNC      ,NC)
+         CALL ENDRUN (-1)
+      ENDIF
+      NTEST = 10
+      N = NC
+      T = 0.0
+  10  CONTINUE
+      IF (N.EQ.0) GO TO 300
+      ITS = 0
+  20  CONTINUE
+      IF (N.NE.1) THEN
+         DO 30 L1=2,N
+            L = N + 2 - L1
+            IF (ABS(H(L,L-1)).LE.
+     R          EPS*(ABS(H(L-1,L-1))+ABS(H(L,L))))
+     R         GO TO 50
+   30    CONTINUE
+      ENDIF
+      L = 1
+   50 CONTINUE
+      IF (L.NE.N) THEN
+         IF (ITS.EQ.NFAIL) THEN
+            I = NC - N + 1
+            CALL MESAGE(40HCOMLRG FAILED TO CONVERGE                )
+            CALL IVAR(8HEIGENVAL,I)
+            CALL IVAR(8HITERATN ,NFAIL)
+            CALL ENDRUN (-1)
+         ENDIF
+         IF (ITS.EQ.NTEST) THEN
+            NTEST = NTEST + 10
+            SR = H(N,N-1)
+            SI = H(N-1,N-2)
+            SR = ABS(SR)+ABS(SI)
+            U = (0.0,-1.0)*H(N,N-1)
+            TR = U
+            U = (0.0,-1.0)*H(N-1,N-2)
+            TI = U
+            TR = ABS(TR) + ABS(TI)
+            S = CMPLX(SR,TR)
+         ELSE
+            S = H(N,N)
+            X = H(N-1,N)*H(N,N-1)
+            IF (ABS(X).NE.0.0) THEN
+               Y = 0.5*(H(N-1,N-1)-S)
+               U = Y*Y + X
+               Z = SQRT(U)
+               U = CONJG(Z)*Y
+               AREAL = U
+               IF (AREAL.LT.0.0) Z = -Z
+               X = X/(Y+Z)
+               S = S - X
+            ENDIF
+         ENDIF
+         DO 75 I=1,N
+            H(I,I) = H(I,I) - S
+   75    CONTINUE
+         T = T + S
+         ITS = ITS + 1
+         J = L + 1
+         XR = ABS(H(N-1,N-1))
+         YR = ABS(H(N,N-1))
+         ZR = ABS(H(N,N))
+         N1 = N - 1
+         IF ((N1.NE.1).AND.(N1.GE.J)) THEN
+            DO 80 M1=J,N1
+               M = N1 + J - M1
+               YI = YR
+               YR = ABS(H(M,M-1))
+               XI = ZR
+               ZR = XR
+               XR = ABS(H(M-1,M-1))
+               IF (YR.LE.EPS*ZR/YI*(ZR+XR+XI)) GO TO 100
+   80       CONTINUE
+         ENDIF
+         M = L
+  100    CONTINUE
+         M1 = M + 1
+         DO 150 I=M1,N
+            X = H(I-1,I-1)
+            Y = H(I,I-1)
+            IF (ABS(X).LT.ABS(Y)) THEN
+               I1 = I - 1
+               DO 110 J=I1,N
+                  Z = H(I-1,J)
+                  H(I-1,J) = H(I,J)
+                  H(I,J) = Z
+  110          CONTINUE
+               Z = X/Y
+               W(I) = 1.0
+            ELSE
+               Z = Y/X
+               W(I) = -1.0
+            ENDIF
+            H(I,I-1) = Z
+            DO 140 J=I,N
+               H(I,J) = H(I,J) - Z*H(I-1,J)
+  140       CONTINUE
+  150    CONTINUE
+         M1 = M + 1
+         DO 190 J=M1,N
+            X = H(J,J-1)
+            H(J,J-1) = 0.0
+            AREAL = W(J)
+            IF (AREAL.GT.0.0) THEN
+               DO 160 I=L,J
+                  Z = H(I,J-1)
+                  H(I,J-1) = H(I,J)
+                  H(I,J) = Z
+  160          CONTINUE
+            ENDIF
+            DO 180 I=L,J
+               H(I,J-1) = H(I,J-1) + X*H(I,J)
+  180       CONTINUE
+  190    CONTINUE
+         GO TO 20
+      ENDIF
+      W(N) = H(N,N) + T
+      N = N - 1
+      GO TO 10
+ 300  CONTINUE
+      RETURN
+      END
+C
+C ***************************** DYN ***********************************
+C
+      SUBROUTINE DYN (YQ_SIG)
+C----------------------------------------------------------------------
+C
+CL    OVERALL CONTROLLER FOR SPECTRAL DYNAMICS AND HORIZONTAL DIFFUSION
+CL    FOR U,V,T ON SIGMA COORDS, FOR LEAPFROG TIMESTEP N-1 TO N+1
+C
+C----------------------------------------------------------------------
+#include <PARAMS.h>
+C---------------------------------------------------------------------
+#include <COMBUD.h>
+C---------------------------------------------------------------------
+#include <COMCON.h>
+C----------------------------------------------------------------------
+#include <COMDIF.h>
+C----------------------------------------------------------------------
+#include <COML10.h>
+C----------------------------------------------------------------------
+#include <COML30.h>
+C----------------------------------------------------------------------
+#include <COMIMP.h>
+C---------------------------------------------------------------------
+#include <COMMAP.h>
+C----------------------------------------------------------------------
+#include <COMMUN.h>
+C---------------------------------------------------------------------
+#include <COMTIM.h>
+C---------------------------------------------------------------------
+c     Use yq_sig (at time n) since yq in coml30 is on hybrid coords.
+c     This is not changed by spectral code, just needed in grmult,scan2.
+      DIMENSION
+     *  YQ_SIG(NLON,NOREC,NLEV)
+C---------------------------------------------------------------------
+c     Part of old coml50, used by leg and grmult
+
+c     yut, yvt and yr must be contiguous for call to fftccm below:
+c     DIMENSION YUT_CONTIG(NLON,NOREC,NLEV,3)
+c     EQUIVALENCE (YUT, YUT_CONTIG(1,1,1,1)),
+c    *            (YVT, YUT_CONTIG(1,1,1,2)),
+c    *            (YR,  YUT_CONTIG(1,1,1,3))
+c     DIMENSION
+      COMMON /YUTCONTIG/
+     *  YUT(NLON,NOREC,NLEV),       YVT(NLON,NOREC,NLEV),
+     *  YR(NLON,NOREC,NLEV)
+C---------------------------------------------------------------------
+      DIMENSION
+     *  ZTMP(NLON), VMAX(NLEV)
+      logical first
+      data first /.true./
+C---------------------------------------------------------------------
+C
+CL              CALCULATE MAXIMUM SPEEDS AT EACH LEVEL FOR COURANT
+CL              TRUNCATION IN HORDIF
+C
+      DO 40 JK=1,NLEV
+        VMAX(JK) = .01
+   40 CONTINUE
+
+c     first time through, kcourant is not yet set (hordif)
+      if (first) then
+        kzz = nlev
+        first = .false.
+      else
+        kzz = kcourant
+      endif
+      DO 50 JK=1,kzz
+        DO 52 JJ=1,NOREC
+          DO 54 JI=1,NLON
+            VMAX(JK) = MAX ( VMAX(JK),
+     *                       SQRT(YU(JI,JJ,JK)**2 + YV(JI,JJ,JK)**2) )
+   54     CONTINUE
+   52   CONTINUE
+   50 CONTINUE
+C
+CL              TRANSFORM T,U,V,YFU,YFV,YT2 TO FORMS NEEDED BY SPECTRAL
+CL              CODE: SUBTRACT THE "MEAN" TEMPERATURE PROFILE, MULTIPLY
+CL              U,V AND TENDENCIES BY COS(LAT), CONVERT HEATING RATE
+CL              FROM W M-2 PER LAYER TO DEG K PER S.
+C
+      DO 100 JK=1,NLEV
+        DO 102 JJ=1,NOREC
+          ZCLAT = SQRT(CS(JJ))
+          DO 104 JI=1,NLON
+            YTM1(JI,JJ,JK) = YTM1(JI,JJ,JK) - T0(JK)
+            YT(JI,JJ,JK) = YT(JI,JJ,JK) - T0(JK)
+C
+            YUM1(JI,JJ,JK) = YUM1(JI,JJ,JK)*ZCLAT
+            YVM1(JI,JJ,JK) = YVM1(JI,JJ,JK)*ZCLAT
+            YU(JI,JJ,JK) = YU(JI,JJ,JK)*ZCLAT
+            YV(JI,JJ,JK) = YV(JI,JJ,JK)*ZCLAT
+            YFU(JI,JJ,JK) = YFU(JI,JJ,JK)*ZCLAT
+            YFV(JI,JJ,JK) = YFV(JI,JJ,JK)*ZCLAT
+C
+            YT2(JI,JJ,JK) = YT2(JI,JJ,JK) * GRAVIT
+     *        /(YPS(JI,JJ)*DSIGMA(JK)*CPAIR*(1.+CPVIR*YQ_SIG(JI,JJ,JK)))
+  104     CONTINUE
+  102   CONTINUE
+  100 CONTINUE
+C
+C
+CL              CALCULATE NON-LINEAR PART OF TENDENCIES.
+CL              LOOP OVER LATITUDE HERE FOR MULTIPROCESSING.
+C
+C
+#if defined ( omp )
+!$OMP PARALLEL DO DEFAULT (NONE)
+!$OMP* shared   (yq_sig, yut, yvt, yr)
+!$OMP* private  (jj)
+!$OMP* schedule(dynamic,2)
+#endif
+      DO 200 JJ=1,NOREC
+        CALL GRMULT (YQ_SIG, YUT, YVT, YR, JJ)
+  200 CONTINUE
+C
+CL              ACCUMULATE STATISTICS
+C
+      CALL STATS
+C
+CL              FFT OF TIME N-1 VALUES OF PROGNOSTIC VARIABLES
+C
+#ifdef sundebug
+      call fftccm( ylpsm1,      norec, -1)
+      call fftccm( ytm1  , nlev*norec, -1)
+      call fftccm( yzm1  , nlev*norec, -1)
+      call fftccm( ydm1  , nlev*norec, -1)
+#else
+      CALL FFTCCM( YLPSM1(1,1), (3*NLEV+1)*NOREC, -1)
+#endif
+C
+CL              FFT OF NON-LINEAR QUANTITIES
+C
+#ifdef sundebug
+      call fftccm( yfu   , nlev*norec, -1)
+      call fftccm( yfv   , nlev*norec, -1)
+#else
+      CALL FFTCCM( YFU(1,1,1), (2*NLEV)*NOREC, -1)
+#endif
+
+#ifdef sundebug
+      call fftccm( yut   , nlev*norec, -1)
+      call fftccm( yvt   , nlev*norec, -1)
+      call fftccm( yr    , nlev*norec, -1)
+#else
+      CALL FFTCCM( YUT(1,1,1), (3*NLEV)*NOREC, -1)
+#endif
+C
+CL              CONVERT FROM NORTH/SOUTH TO SYMMETRIC/ANTISYMMETRIC
+CL              FIELDS, PRIOR TO COMPUTING SPECTRAL COEFFS.
+CL              LOOP OVER LATITUDE PAIRS HERE FOR MULTIPROCESSING.
+C
+#if defined ( omp )
+!$OMP PARALLEL DO DEFAULT (NONE)
+!$OMP* shared  (yut, yvt, yr)
+!$OMP* private (jj, jjs, jjn)
+!$OMP* schedule(dynamic,2)
+#endif
+C
+      DO 300 JJ=1,NOREC/2
+        JJS = JJ
+        JJN = NOREC-JJ+1
+        CALL LEGA (YUT, YVT, YR, JJ, JJS, JJN)
+  300 CONTINUE
+C
+CL              CALCULATE SPECTRAL COEFFICIENTS FOR TIME N+1 VARIABLES
+CL              (EXCEPT IMPLICIT PART). MULTIPROCESSING IS DONE WITHIN
+CL              LEGB.
+C
+      CALL LEGB (YVT, YR)
+C
+CL              LEAPFROG TIME STEP (N-1 TO N+1) IN SPECTRAL SPACE
+C
+      CALL TSTEPA
+C
+CL              LINEAR HORIZONTAL DIFFUSION IN SPECTRAL SPACE
+C
+      CALL HORDIF (VMAX)
+C
+CL              TRANSFORM BACK TO GRID SPACE. MULTIPROCESSING IS DONE
+CL              WITHIN SCAN2.
+C
+      CALL SCAN2 (YQ_SIG)
+C
+CL              TRANSFORM T,U,V AT TIME N+1 BACK TO STANDARD FORMS:
+CL              ADD THE "MEAN" TEMPERATURE PROFILE TO GET DEG K,
+CL              AND DIVIDE U,V BY COS(LAT) TO GET ACTUAL VELOCITY.
+ 
+      DO 500 JK=1,NLEV
+        DO 502 JJ=1,NOREC
+          ZCLAT = SQRT(CS(JJ))
+          DO 504 JI=1,NLON
+            YT(JI,JJ,JK) = YT(JI,JJ,JK) + T0(JK)
+            YU(JI,JJ,JK) = YU(JI,JJ,JK)/ZCLAT
+            YV(JI,JJ,JK) = YV(JI,JJ,JK)/ZCLAT
+  504     CONTINUE
+  502   CONTINUE
+  500 CONTINUE
+C
+CL              COMPUTE HORIZONTAL DIFFUSION BUDGETS, AND SAVE
+CL              HISTORY HORIZ DIFFUSION RATES FOR STEP N-1 TO N+1
+C
+      DO 600 JK = 1,NLEV
+         DO 602 JJ = 1,NOREC
+            DHHDIF(JJ) = DHHDIF(JJ) + CPAIR
+     *                   *SDOT(NLON,YDTH(1,JJ,JK),1,YPS(1,JJ),1)
+     *                   *DSIGMA(JK)*DTIME/(NLON*GRAVIT)
+            DO 604 JI = 1,NLON
+               ZTMP(JI) = YDUH(JI,JJ,JK) + YDVH(JI,JJ,JK)
+  604       CONTINUE
+            DKEHDF(JJ) = DKEHDF(JJ) + CPAIR
+     *                                *SDOT(NLON,ZTMP,1,YPS(1,JJ),1)
+     *                                *DSIGMA(JK)*DTIME/(NLON*GRAVIT)
+  602    CONTINUE
+  600 CONTINUE
+      CALL PUTHIS (YDUH, 7)
+      CALL PUTHIS (YDVH, 8)
+      CALL PUTHIS (YDTH, 9)
+C
+      RETURN
+      END
+C
+C **************************** FFMOVE **********************************
+C
+      SUBROUTINE FFMOVE (A, B, KLON, KBL, IDIR)
+C----------------------------------------------------------------------
+C
+CL            COPY BETWEEN ARRAY A (KBL GROUPS OF KLON WORDS) AND
+CL            ARRAY B (KBL GROUPS OF KLON+2 WORDS). USED FOR FFT BY
+CL            SUBR FFTCCM. IDIR = 1 FOR A TO B, = -1 FOR B TO A.
+C
+C----------------------------------------------------------------------
+      DIMENSION A(KLON,KBL), B(KLON+2,KBL)
+C----------------------------------------------------------------------
+ 
+      IF (IDIR.EQ.1) THEN
+ 
+         DO 10 N=1,KBL
+           DO 12 I=1,KLON
+             B(I,N) = A(I,N)
+   12      CONTINUE
+c          set 'extra' words to zero (necessary for fourier coeffs)
+           B(KLON+1,N) = 0.
+           B(KLON+2,N) = 0.
+   10    CONTINUE
+ 
+      ELSE
+ 
+         DO 20 N=1,KBL
+           DO 22 I=1,KLON
+             A(I,N) = B(I,N)
+   22      CONTINUE
+   20    CONTINUE
+ 
+      ENDIF
+ 
+      RETURN
+      END
+C
+C **************************** FFMOVE_OLD *****************************
+C
+C     SUBROUTINE FFMOVE_OLD ( A, B, KLON, KBL, IDIR)
+C----------------------------------------------------------------------
+C
+CL            COPY BETWEEN ARRAY A (KBL GROUPS OF KLON WORDS) AND
+CL            ARRAY B (KBL GROUPS OF KLON+2 WORDS). USED FOR FFT BY
+CL            SUBR FFTCCM. IDIR = 1 FOR A TO B, = -1 FOR B TO A.
+C
+C----------------------------------------------------------------------
+C     DIMENSION A(*), B(*)
+C----------------------------------------------------------------------
+C
+C     IF (IDIR.EQ.1) THEN
+C
+C        DO 10 JI=1,KLON
+C           CALL SCOPY( KBL, A(JI), KLON, B(JI), KLON+2)
+C  10    CONTINUE
+C        SET 'EXTRA' WORDS TO ZERO (NECESSARY FOR FOURIER COEFFS)
+CCDIR$ IVDEP
+C        DO 15 JB=1,KBL
+C           B( (JB-1)*(KLON+2) + KLON + 1 ) = 0.
+C           B( (JB-1)*(KLON+2) + KLON + 2 ) = 0.
+C  15    CONTINUE
+C
+C     ELSE
+C
+C        DO 20 JI=1,KLON
+C           CALL SCOPY( KBL, B(JI), KLON+2, A(JI), KLON)
+C  20    CONTINUE
+C
+C     ENDIF
+C
+C     RETURN
+C     END
+C
+C **************************** FFTCCM *********************************
+C
+      SUBROUTINE FFTCCM (A, ILEN, ISIGN)
+C----------------------------------------------------------------------
+C
+CL            DO FFT FOR ILEN*NLON WORDS OF DATA STARTING AT A(1).
+CL            BEFORE AND AFTER CALLING LIBRARY SUBR FFT991, SUBR FFMOVE
+CL            IS USED TO REARRANGE NLON <-> NLON+2 AS NEEDED BY FFT991.
+CL            ISIGN IS -1 FOR GRID TO FOURIER, 1 FOR FOURIER TO GRID.
+C
+C----------------------------------------------------------------------
+#include <PARAMS.h>
+C----------------------------------------------------------------------
+#include <COMFFT.h>
+C---------------------------------------------------------------------
+      DIMENSION A(*)
+C---------------------------------------------------------------------
+      DIMENSION FFTMP(NCRAY*(NLON+2)), WORKFFT((NLON+1)*NCRAY)
+C---------------------------------------------------------------------
+ 
+C        DATA WILL BE ANALYZED IN BLOCKS OF NCRAY*NLON WORDS
+ 
+      IBLOCK = ILEN/NCRAY
+      IREM = ILEN - IBLOCK*NCRAY
+ 
+#if defined ( omp )
+!$OMP PARALLEL DO DEFAULT (NONE)
+!$OMP* shared   (iblock, irem, a, isign, trig, ifax)
+!$OMP* private  (nz, fftmp, workfft, i)
+!$OMP* schedule(dynamic,2)
+#endif
+ 
+      DO 10 I=1,IBLOCK+1
+ 
+         IF (I.LE.IBLOCK) THEN
+            NZ = NCRAY
+         ELSE
+            IF (IREM.EQ.0) GOTO 10
+            NZ = IREM
+         ENDIF
+         CALL FFMOVE (A(1+(I-1)*NCRAY*NLON), FFTMP, NLON, NZ, 1)
+         CALL FFT991 (FFTMP, WORKFFT, TRIG, IFAX, 1,
+     *                NLON+2, NLON, NZ, ISIGN)
+         CALL FFMOVE (A(1+(I-1)*NCRAY*NLON), FFTMP, NLON, NZ, -1)
+ 
+   10 CONTINUE
+ 
+      RETURN
+      END
+C
+C ***************************** GAUAW *********************************
+C
+      SUBROUTINE GAUAW (A,W,K)
+C----------------------------------------------------------------------
+C
+CL            CALCULATE ABSCISSA A(K) AND WEIGHTS W(K)
+CL            FOR THE GAUSSIAN INTEGRATION.  THE ZEROS OF THE
+CL            BESSEL FNTN. J0 ARE USED TO GET STARTING
+CL            APPROXIMATIONS FOR THE ABSCISSAS.
+C
+C----------------------------------------------------------------------
+C
+      DIMENSION A(K),W(K)
+C
+      EPS = 1.E-14
+C
+CL            THE VALUE EPS, USED FOR CONVERGENCE TESTS IN THE
+CL            ITERATIONS, CAN BE CHANGED.
+CL            NEWTON ITERATION IS USED TO FIND THE ABSCISSAS.
+C
+      C = (1.-(2./3.14159265358979)**2)*0.25
+      FK = K
+      KK = K/2
+      CALL BSSLZR(A,KK)
+      DO 30 IS=1,KK
+         XZ = COS(A(IS)/SQRT((FK+0.5)**2+C))
+C
+CL            THIS IS THE FIRST APPROXIMATION TO XZ
+C
+         ITER = 0
+   10    PKM2 = 1.
+         PKM1 = XZ
+         ITER = ITER + 1
+         IF (ITER.GT.10) THEN
+C
+C      ERROR EXIT
+C
+            CALL MESAGE(40HERROR EXIT FROM GAUAW                   )
+            CALL ENDRUN (-1)
+         ENDIF
+C
+C      COMPUTATION OF THE LEGENDRE POLYNOMIAL
+C
+         DO 20 N=2,K
+            FN = N
+            PK = ((2.*FN-1.)*XZ*PKM1-(FN-1.)*PKM2)/FN
+            PKM2 = PKM1
+            PKM1 = PK
+20       CONTINUE
+         PKM1 = PKM2
+         PKMRK = (FK*(PKM1-XZ*PK))/(1.-XZ**2)
+         SP = PK/PKMRK
+         XZ = XZ - SP
+         AVSP = ABS(SP)
+         IF (AVSP.GT.EPS) GO TO 10
+         A(IS) = XZ
+         W(IS) = (2.*(1.-XZ**2))/(FK*PKM1)**2
+   30 CONTINUE
+      IF (K.NE.KK*2) THEN
+C
+C      FOR ODD K COMPUTATION OF WEIGHT AT THE EQUATOR
+C
+         A(KK+1) = 0.
+         PK = 2./FK**2
+         DO 40 N=2,K,2
+            FN = N
+            PK = PK*FN**2/(FN-1.)**2
+40       CONTINUE
+         W(KK+1) = PK
+      ENDIF
+C
+C      COMPLETE THE SETS OF ABSCISSAS AND WEIGHTS, USING THE SYMMETRY.
+C
+      DO 60 N=1,KK
+         L = K + 1 - N
+C        NEXT LINE CONVERTS TO SOUTH-TO-NORTH COORDINATE
+         A(N) = -A(N)
+         A(L) = -A(N)
+         W(L) = W(N)
+60    CONTINUE
+      RETURN
+      END
+C
+C ***************************** GRCALC ********************************
+C
+      SUBROUTINE GRCALC (JJ, JJS, JJN)
+C---------------------------------------------------------------------
+C
+CL            COMPUTE LEGENDRE TRANSFORMS FROM SPECTRAL TO GRID, ONE
+CL            LATITUDE PAIR (JJ=JJS,JJN) AT A TIME (FOR MULTIPROCESSING)
+C
+C---------------------------------------------------------------------
+#include <PARAMS.h>
+C---------------------------------------------------------------------
+#include <COMCON.h>
+C---------------------------------------------------------------------
+#include <COMDIF.h>
+C----------------------------------------------------------------------
+#include <COMLEG.h>
+C---------------------------------------------------------------------
+#include <COMLUN.h>
+C----------------------------------------------------------------------
+#include <COML10.h>
+C----------------------------------------------------------------------
+#include <COML30.h>
+C---------------------------------------------------------------------
+#include <COMMAP.h>
+C---------------------------------------------------------------------
+#include <COMSDT.h>
+C----------------------------------------------------------------------
+#include <COMSPE.h>
+C----------------------------------------------------------------------
+#include <COMTIM.h>
+C----------------------------------------------------------------------
+#include <COMTRU.h>
+C----------------------------------------------------------------------
+c     Old coml51, now local to grcalc
+      DIMENSION
+     *  YU1(NLON,2,NLEV),         YV1(NLON,2,NLEV),
+     *  YUH1(NLON,2,NLEV),        YVH1(NLON,2,NLEV)
+C---------------------------------------------------------------------
+C
+CL            0.        INITIALIZATION
+C                       --------------
+C
+CL            0.10      ZERO FIELD ARRAYS
+C
+
+c     "unroll" jhem loop to avoid luna problem with optim level > 0
+c     DO 100 JHEM = 1,2                ! luna
+c       IF (JHEM.EQ.1) JJH = JJS       ! luna 
+c       IF (JHEM.EQ.2) JJH = JJN       ! luna
+ 
+        DO 102 JI=1,NLON
+          YF(JI,jjs) = 0.
+          YLPS(JI,jjs) = 0.
+          YDPSL(JI,jjs) = 0.
+          YDPSM(JI,jjs) = 0.
+
+          YF(JI,jjn) = 0.
+          YLPS(JI,jjn) = 0.
+          YDPSL(JI,jjn) = 0.
+          YDPSM(JI,jjn) = 0.
+  102   CONTINUE
+ 
+        DO 104 JK=1,NLEV
+          DO 106 JI=1,NLON
+            YU(JI,jjs,JK) = 0.
+            YV(JI,jjs,JK) = 0.
+            YT(JI,jjs,JK) = 0.
+            YZ(JI,jjs,JK) = 0.
+            YD(JI,jjs,JK) = 0.
+            YDUH(JI,jjs,JK) = 0.
+            YDVH(JI,jjs,JK) = 0.
+            YDTH(JI,jjs,JK) = 0.
+ 
+            YU1(JI,1,JK) = 0.
+            YV1(JI,1,JK) = 0.
+            YUH1(JI,1,JK) = 0.
+            YVH1(JI,1,JK) = 0.
+
+            YU(JI,jjn,JK) = 0.
+            YV(JI,jjn,JK) = 0.
+            YT(JI,jjn,JK) = 0.
+            YZ(JI,jjn,JK) = 0.
+            YD(JI,jjn,JK) = 0.
+            YDUH(JI,jjn,JK) = 0.
+            YDVH(JI,jjn,JK) = 0.
+            YDTH(JI,jjn,JK) = 0.
+ 
+            YU1(JI,2,JK) = 0.
+            YV1(JI,2,JK) = 0.
+            YUH1(JI,2,JK) = 0.
+            YVH1(JI,2,JK) = 0.
+  106     CONTINUE
+  104   CONTINUE
+ 
+c 100 CONTINUE  ! luna
+C
+C----------------------------------------------------------------------
+C
+CL            2.0       COMPUTATION FOR NLEV-LEVEL VARIABLES
+C                       ----------- --- ---------- ---------
+C
+        DO 210 JK=1,NLEV
+C
+          DO 220 JN=1,NMAX
+            IF(MOD(JN,2).EQ.1) THEN
+              JJ1 = JJS
+              JJ2 = JJN
+              JHEM = 1
+            ELSE
+              JJ1 = JJN
+              JJ2 = JJS
+              JHEM = 2
+            ENDIF
+            DO 222 JMA=1,2*MTRUNC(JN)
+              JM=(JMA+1)/2
+              JTRUE=JM+JN-1
+C
+              YT(JMA,JJ1,JK) = YT(JMA,JJ1,JK)
+     A                        + T(JMA,JN,JK)*YALP(JM,JN,JJ)
+C
+              YDTH(JMA,JJ1,JK) = YDTH(JMA,JJ1,JK)
+     A                          - T(JMA,JN,JK)*YALP(JM,JN,JJ)
+     B                            *HDIFT(JTRUE,JK)
+C
+              YD(JMA,JJ1,JK) = YD(JMA,JJ1,JK)
+     A                        + D(JMA,JN,JK)*YALP(JM,JN,JJ)
+C
+              YZ(JMA,JJ1,JK) = YZ(JMA,JJ1,JK)
+     A                        + VZ(JMA,JN,JK)*YALP(JM,JN,JJ)
+C
+              YU(JMA,JJ2,JK) = YU(JMA,JJ2,JK)
+     A                   + VZ(JMA,JN,JK)*YDALP(JM,JN,JJ)*RSQ(JTRUE)*RA
+C
+              YDUH(JMA,JJ2,JK) = YDUH(JMA,JJ2,JK)
+     A                   - VZ(JMA,JN,JK)*YDALP(JM,JN,JJ)*RSQ(JTRUE)*RA
+     B                     *HDIFZ(JTRUE,JK)
+C
+              YV(JMA,JJ2,JK) = YV(JMA,JJ2,JK)
+     A                   - D(JMA,JN,JK)*YDALP(JM,JN,JJ)*RSQ(JTRUE)*RA
+C
+              YDVH(JMA,JJ2,JK) = YDVH(JMA,JJ2,JK)
+     A                   + D(JMA,JN,JK)*YDALP(JM,JN,JJ)*RSQ(JTRUE)*RA
+     B                     *HDIFZ(JTRUE,JK)
+C
+              YU1(JMA,JHEM,JK) = YU1(JMA,JHEM,JK)
+     A                   + D(JMA,JN,JK)*YALP(JM,JN,JJ)*RSQ(JTRUE)*RA
+     B                     *XM(JM)
+C
+              YUH1(JMA,JHEM,JK) = YUH1(JMA,JHEM,JK)
+     A                   - D(JMA,JN,JK)*YALP(JM,JN,JJ)*RSQ(JTRUE)*RA
+     B                     *XM(JM)*HDIFZ(JTRUE,JK)
+C
+              YV1(JMA,JHEM,JK) = YV1(JMA,JHEM,JK)
+     A                   + VZ(JMA,JN,JK)*YALP(JM,JN,JJ)*RSQ(JTRUE)*RA
+     B                     *XM(JM)
+C
+              YVH1(JMA,JHEM,JK) = YVH1(JMA,JHEM,JK)
+     A                   - VZ(JMA,JN,JK)*YALP(JM,JN,JJ)*RSQ(JTRUE)*RA
+     B                     *XM(JM)*HDIFZ(JTRUE,JK)
+  222       CONTINUE
+  220     CONTINUE
+  210   CONTINUE
+C
+CL            2.4       FINAL COMPUTATION OF UM AND VM
+C
+
+c     "unroll" jhem loop to avoid luna problem with optim level > 0
+c     DO 240 JHEM=1,2                 ! luna
+c       IF (JHEM.EQ.1) JJH = JJS      ! luna
+c       IF (JHEM.EQ.2) JJH = JJN      ! luna
+ 
+        DO 242 JK=1,NLEV
+!DIR$ IVDEP
+          DO 244 JM=1,MMAX
+            JMR=2*JM-1
+            JMI=2*JM
+c---
+            YU(JMR,jjs,JK) = YU(JMR,jjs,JK) + YU1(JMI,1,JK)
+            YU(JMI,jjs,JK) = YU(JMI,jjs,JK) - YU1(JMR,1,JK)
+C
+            YDUH(JMR,jjs,JK) = YDUH(JMR,jjs,JK) + YUH1(JMI,1,JK)
+            YDUH(JMI,jjs,JK) = YDUH(JMI,jjs,JK) - YUH1(JMR,1,JK)
+C
+            YV(JMR,jjs,JK) = YV(JMR,jjs,JK) + YV1(JMI,1,JK)
+            YV(JMI,jjs,JK) = YV(JMI,jjs,JK) - YV1(JMR,1,JK)
+C
+            YDVH(JMR,jjs,JK) = YDVH(JMR,jjs,JK) + YVH1(JMI,1,JK)
+            YDVH(JMI,jjs,JK) = YDVH(JMI,jjs,JK) - YVH1(JMR,1,JK)
+c---
+            YU(JMR,jjn,JK) = YU(JMR,jjn,JK) + YU1(JMI,2,JK)
+            YU(JMI,jjn,JK) = YU(JMI,jjn,JK) - YU1(JMR,2,JK)
+C
+            YDUH(JMR,jjn,JK) = YDUH(JMR,jjn,JK) + YUH1(JMI,2,JK)
+            YDUH(JMI,jjn,JK) = YDUH(JMI,jjn,JK) - YUH1(JMR,2,JK)
+C
+            YV(JMR,jjn,JK) = YV(JMR,jjn,JK) + YV1(JMI,2,JK)
+            YV(JMI,jjn,JK) = YV(JMI,jjn,JK) - YV1(JMR,2,JK)
+C
+            YDVH(JMR,jjn,JK) = YDVH(JMR,jjn,JK) + YVH1(JMI,2,JK)
+            YDVH(JMI,jjn,JK) = YDVH(JMI,jjn,JK) - YVH1(JMR,2,JK)
+c---
+  244     CONTINUE
+  242   CONTINUE
+
+c 240 CONTINUE     ! luna
+
+C
+CL            2.6       CORRECTION TO U SINCE VZ = ABSOLUTE VORTICITY
+CL                      (SO SUBTRACT 2*OMEGA*SIN(LAT) CONTRIB. TO U)
+C
+        DO 262 JK=1,NLEV
+          YU(1,JJS,JK) = YU(1,JJS,JK) - EZ*YDALP(1,2,JJ)*RSQ(2)*RA
+  262   CONTINUE
+C
+C----------------------------------------------------------------------
+C
+CL            3.        COMPUTATION FOR 1-LEVEL VARIABLES
+C                       ----------- --- ------- ---------
+C
+        DO 310 JN=1,NMAX
+          IF(MOD(JN,2).EQ.1) THEN
+            JJ1 = JJS
+            JJ2 = JJN
+          ELSE
+            JJ1 = JJN
+            JJ2 = JJS
+          ENDIF
+          DO 312 JMA=1,2*MTRUNC(JN)
+            JM=(JMA+1)/2
+            JTRUE=JM+JN-1
+C
+            YLPS(JMA,JJ1) = YLPS(JMA,JJ1)
+     A                      + ALPS(JMA,JN)*YALP(JM,JN,JJ)
+C
+            YF(JMA,JJ1) = YF(JMA,JJ1)
+     A                    + ALPS(JMA,JN)*YALP(JM,JN,JJ)
+     B                      *TWODT*HDIFT4(JTRUE)
+C
+            YDPSM(JMA,JJ2) = YDPSM(JMA,JJ2)
+     A                       + ALPS(JMA,JN)*YDALP(JM,JN,JJ)*RA
+  312     CONTINUE
+  310   CONTINUE
+
+C
+CL            3.4       MULTIPLY BY M/A TO GET D(LN(P*))/DLAMDA
+CL                      AND BY 1/A TO GET (1-MU**2)D(LN(P*))/DMU
+C
+
+c     "unroll" jhem loop to avoid luna problem with optim level > 0
+c     DO 340 JHEM=1,2              ! luna
+c       IF (JHEM.EQ.1) JJH = JJS   ! luna
+c       IF (JHEM.EQ.2) JJH = JJN   ! luna
+
+!DIR$ IVDEP
+        DO 342 JM=1,MMAX
+          JMR=2*JM-1
+          JMI=2*JM
+          YDPSL(JMR,jjs) = -YLPS(JMI,jjs) * RA * XM(JM)
+          YDPSL(JMI,jjs) =  YLPS(JMR,jjs) * RA * XM(JM)
+          YDPSL(JMR,jjn) = -YLPS(JMI,jjn) * RA * XM(JM)
+          YDPSL(JMI,jjn) =  YLPS(JMR,jjn) * RA * XM(JM)
+  342   CONTINUE
+
+c       another way to avoid luna problem:
+c       write(6,'(a,i4,8e15.6)')' jjh:',jjh, (ydpsl(i,jjh),i=1,nlon,12)
+c 340 CONTINUE  ! luna
+C
+C----------------------------------------------------------------------
+C
+CL            4.        RECOVER NORTH/SOUTH FIELDS FROM SYMMETRIC
+CL                      AND ANTISYMMETRIC PARTS.
+C
+        DO 402 JK=1,NLEV
+          DO 404 JI=1,NLON
+            YU(JI,JJN,JK) = YU(JI,JJS,JK) + YU(JI,JJN,JK)
+            YU(JI,JJS,JK) = 2.*YU(JI,JJS,JK) - YU(JI,JJN,JK)
+            YV(JI,JJN,JK) = YV(JI,JJS,JK) + YV(JI,JJN,JK)
+            YV(JI,JJS,JK) = 2.*YV(JI,JJS,JK) - YV(JI,JJN,JK)
+            YT(JI,JJN,JK) = YT(JI,JJS,JK) + YT(JI,JJN,JK)
+            YT(JI,JJS,JK) = 2.*YT(JI,JJS,JK) - YT(JI,JJN,JK)
+            YZ(JI,JJN,JK) = YZ(JI,JJS,JK) + YZ(JI,JJN,JK)
+            YZ(JI,JJS,JK) = 2.*YZ(JI,JJS,JK) - YZ(JI,JJN,JK)
+            YD(JI,JJN,JK) = YD(JI,JJS,JK) + YD(JI,JJN,JK)
+            YD(JI,JJS,JK) = 2.*YD(JI,JJS,JK) - YD(JI,JJN,JK)
+            YDUH(JI,JJN,JK) = YDUH(JI,JJS,JK) + YDUH(JI,JJN,JK)
+            YDUH(JI,JJS,JK) = 2.*YDUH(JI,JJS,JK) - YDUH(JI,JJN,JK)
+            YDVH(JI,JJN,JK) = YDVH(JI,JJS,JK) + YDVH(JI,JJN,JK)
+            YDVH(JI,JJS,JK) = 2.*YDVH(JI,JJS,JK) - YDVH(JI,JJN,JK)
+            YDTH(JI,JJN,JK) = YDTH(JI,JJS,JK) + YDTH(JI,JJN,JK)
+            YDTH(JI,JJS,JK) = 2.*YDTH(JI,JJS,JK) - YDTH(JI,JJN,JK)
+  404     CONTINUE
+  402   CONTINUE
+C
+        DO 406 JI=1,NLON
+          YF(JI,JJN) = YF(JI,JJS) + YF(JI,JJN)
+          YF(JI,JJS) = 2.*YF(JI,JJS) - YF(JI,JJN)
+          YLPS(JI,JJN) = YLPS(JI,JJS) + YLPS(JI,JJN)
+          YLPS(JI,JJS) = 2.*YLPS(JI,JJS) - YLPS(JI,JJN)
+          YDPSL(JI,JJN) = YDPSL(JI,JJS) + YDPSL(JI,JJN)
+          YDPSL(JI,JJS) = 2.*YDPSL(JI,JJS) - YDPSL(JI,JJN)
+          YDPSM(JI,JJN) = YDPSM(JI,JJS) + YDPSM(JI,JJN)
+          YDPSM(JI,JJS) = 2.*YDPSM(JI,JJS) - YDPSM(JI,JJN)
+  406   CONTINUE
+C
+      RETURN
+      END
+C
+C ***************************** GRMULT ********************************
+C
+      SUBROUTINE GRMULT (YQ_SIG, YUT, YVT, YR, JJ)
+C---------------------------------------------------------------------
+C
+CL            NON-LINEAR CALCULATIONS IN GRID POINT SPACE,
+CL            ONE LATITUDE CIRCLE (JJ) AT A TIME (FOR MULTIPROCESSING).
+C
+C---------------------------------------------------------------------
+#include <PARAMS.h>
+C---------------------------------------------------------------------
+#include <COMBUD.h>
+C---------------------------------------------------------------------
+#include <COMCON.h>
+C---------------------------------------------------------------------
+#include <COMIMP.h>
+C---------------------------------------------------------------------
+#include <COML10.h>
+C---------------------------------------------------------------------
+#include <COML30.h>
+C---------------------------------------------------------------------
+#include <COMMAP.h>
+C---------------------------------------------------------------------
+#include <COMMUN.h>
+C---------------------------------------------------------------------
+#include <COMSDT.h>
+C---------------------------------------------------------------------
+#include <COMTIM.h>
+C---------------------------------------------------------------------
+c     Use yq_sig (at time n) since yq in coml30 is now on hybrid coords
+      DIMENSION YQ_SIG(NLON,NOREC,NLEV)
+C---------------------------------------------------------------------
+c     Part of old coml50, now passed from dyn
+      DIMENSION
+     *  YUT(NLON,NOREC,NLEV),       YVT(NLON,NOREC,NLEV),
+     *  YR(NLON,NOREC,NLEV)
+C---------------------------------------------------------------------
+c     Part of old coml50, now local to grmult
+      DIMENSION
+     *  YKDDS(NLON),          YKVPDS(NLON),
+     *  YNDDS(NLON),          YNVPDS(NLON),
+     *  YKAD(NLON),           YKAVP(NLON),
+     *  YKSDOT(NLON),         YSDTMD(NLON),
+     *  YVKDP(NLON),          YTKM1(NLON),
+     *  YUKM1(NLON),          YVKM1(NLON),
+     *  YTV(NLON,NLEV),       YE(NLON,NLEV)
+C---------------------------------------------------------------------
+      DIMENSION
+     *  ZTMP(NLON)
+C---------------------------------------------------------------------
+
+C
+C
+CL            1.1       COMPUTE ENERGY CONVERSION TERM FOR BUDGET
+C
+       DO 110 JK = 1,NLEV
+            DO 105 JI = 1,NLON
+               ZTMP(JI) = (1. + ZVIR*YQ_SIG(JI,JJ,JK))
+     A                     * (YT(JI,JJ,JK) + T0(JK)) * VOMEGA(JI,JJ,JK)
+     A                     / SIG(JK)
+  105       CONTINUE
+            SUMDHC = SSUM(NLON, ZTMP(1), 1)
+            DHCON(JJ) = DHCON(JJ)
+     *                + RAIR*SUMDHC*DSIGMA(JK)*DTIME/(NLON*GRAVIT)
+  110 CONTINUE
+C
+C----------------------------------------------------------------------
+C
+CL            2.        ZERO AUXILIARY FIELDS
+CL                      ---- --------- ------
+      DO 120 JI=1,NLON
+       YKDDS(JI) = 0.
+       YKVPDS(JI) = 0.
+       YNDDS(JI) = 0.
+       YNVPDS(JI) = 0.
+       YKAD(JI) = 0.
+       YKAVP(JI) = 0.
+       YKSDOT(JI) = 0.
+       YSDTMD(JI) = 0.
+       YVKDP(JI) = 0.
+       YTKM1(JI) = 0.
+       YUKM1(JI) = 0.
+       YVKM1(JI) = 0.
+  120 CONTINUE
+C
+C----------------------------------------------------------------------
+C
+CL            3.        CALCULATE SOME AUXILIARY QUANTITIES
+CL                      --------- ---- --------- ----------
+C
+      DO 350 JK = 1,NLEV
+C
+CL            3.02      SET CONSTANTS
+C
+         ZT0=T0(JK)
+         ZDSIG=DSIGMA(JK)
+C
+            ZDSIGR = ZDSIG * RCS(JJ)
+C
+            DO 325 JI = 1,NLON
+C
+CL            3.10      SUM(NLEV)(D(K)*DELSIG(K))
+CL                      AND SUM(NLEV)(V(K)*GRAD(LN(PSTAR))*DELSIG(K))
+C
+               YVKDP(JI) = YU(JI,JJ,JK) * YDPSL(JI,JJ)
+     A                      + YV(JI,JJ,JK) * YDPSM(JI,JJ)
+               YNDDS(JI) = YNDDS(JI) + YD(JI,JJ,JK)*ZDSIG
+               YNVPDS(JI) = YNVPDS(JI) + YVKDP(JI)*ZDSIGR
+C
+CL            3.20      VIRTUAL TEMPERATURES
+C
+               YTV(JI,JK) = (ZT0 + YT(JI,JJ,JK))
+     A                      * (1. + ZVIR*YQ_SIG(JI,JJ,JK)) - ZT0
+  325       CONTINUE
+  350 CONTINUE
+C
+C----------------------------------------------------------------------
+C
+CL            4.        FIRST PART OF TENDENCIES
+CL                      ----- ---- -- ----------
+C
+      ZT0KM1=T0(1)
+C
+      DO 560 JK = 1,NLEV
+C
+CL            4.01      SET SOME CONSTANTS
+C
+         ZSIGH = SIGKMH(JK+1)
+         ZDSIG=DSIGMA(JK)
+         ZR2DS=R2DSIG(JK)
+         ZTR2DS=ZR2DS*TWODT
+         ZT0=T0(JK)
+         ZDT0=ZT0-ZT0KM1
+C
+            ZRC=RCS(JJ)
+            ZHRC=0.5*ZRC
+C
+CL            4.05      ZERO AUX. FIELDS
+C
+            DO 406 JI = 1,NLON
+               YKAD(JI) = 0.
+               YKAVP(JI) = 0.
+  406       CONTINUE
+C
+CL            4.1       V*GRAD(LN(PSTAR)),SUM(K)(A(K,J)*D(J)) AND
+CL                      SUM(K)(A(K,J)*V(J)*GRAD(LN(PSTAR))
+C
+            IJKM=(JK-1)*NLEV
+            DO 412 JK2=1,JK
+               ZA=AG(IJKM+JK2)
+C
+               DO 411 JI = 1,NLON
+                  YVKDP(JI) = ZRC*(  YU(JI,JJ,JK2)*YDPSL(JI,JJ)
+     A                             + YV(JI,JJ,JK2)*YDPSM(JI,JJ) )
+                  YKAD(JI) =  YKAD(JI) + ZA*YD(JI,JJ,JK2)
+                  YKAVP(JI) = YKAVP(JI) + ZA*YVKDP(JI)
+  411          CONTINUE
+  412       CONTINUE
+C
+ 
+CL            4.2       UT,VT,KINETIC ENERGY PARTS OF ROTATION TERMS,
+CL                      TEMPERATURE TENDENCIES
+C
+            DO 426 JI = 1,NLON
+               YUT(JI,JJ,JK) = YU(JI,JJ,JK) * YT(JI,JJ,JK)
+               YVT(JI,JJ,JK) = YV(JI,JJ,JK) * YT(JI,JJ,JK)
+               YE(JI,JK) = ZHRC * (YU(JI,JJ,JK)**2 + YV(JI,JJ,JK)**2)
+C
+C              **NOTE**  YKSDOT=0 FOR FIRST LEVEL, REDEFINED AT 5.2
+               YFU(JI,JJ,JK) = YFU(JI,JJ,JK) + YV(JI,JJ,JK)*YZ(JI,JJ,JK)
+     A           - ZR2DS * YKSDOT(JI) * (YU(JI,JJ,JK) - YUKM1(JI))
+     B           - RAIR * YTV(JI,JK) * YDPSL(JI,JJ)
+C
+               YFV(JI,JJ,JK) = YFV(JI,JJ,JK) - YU(JI,JJ,JK)*YZ(JI,JJ,JK)
+     A           - ZR2DS * YKSDOT(JI) * (YV(JI,JJ,JK) - YVKM1(JI))
+     B           - RAIR * YTV(JI,JK) * YDPSM(JI,JJ)
+C
+C              Lines D-G include bug fix from BUGFIX2 CCM1MODS 7/89
+               YT2(JI,JJ,JK) = YT2(JI,JJ,JK) + YD(JI,JJ,JK)*YT(JI,JJ,JK)
+     A           - ZR2DS * YKSDOT(JI) * (YT(JI,JJ,JK) - YTKM1(JI))
+     B           - ZDT0 * ZR2DS * YSDTMD(JI)
+     C           - CAPPA * ( ZT0*YKAVP(JI)
+     D             + ((YTV(JI,JK)+ZT0)/(1.+CPVIR*YQ_SIG(JI,JJ,JK))
+     E                 - ZT0)
+     E               * (YKAVP(JI) + YKAD(JI))
+     F             - ((YTV(JI,JK)+ZT0)/(1.+CPVIR*YQ_SIG(JI,JJ,JK)))
+     G               * YVKDP(JI) )
+  426       CONTINUE
+C
+C----------------------------------------------------------------------
+C
+C
+CL            5.        SECOND PART OF TENDENCIES
+CL                      ------ ---- -- ----------
+            IF(JK.LT.NLEV) THEN
+C
+CL            5.1       STORE T0,T,U,V OF LEVEL K IN AUX. FIELDS
+C
+               ZT0KM1=ZT0
+               ZDT0=T0(JK+1)-ZT0KM1
+C
+               DO 511 JI = 1,NLON
+                  YTKM1(JI) = YT(JI,JJ,JK)
+                  YUKM1(JI) = YU(JI,JJ,JK)
+                  YVKM1(JI) = YV(JI,JJ,JK)
+  511          CONTINUE
+C
+CL            5.2       SUM(K)(D(J) AND V(J)*GRAD(LN(PSTAR))*DELSIG(J))
+CL            CALC. SIGMADOT(K+1/2) AND IDEM MINUS DIVERGENCE PART
+C
+               DO 521 JI = 1,NLON
+                  YKDDS(JI) = YKDDS(JI) + YD(JI,JJ,JK)*ZDSIG
+                  YKVPDS(JI) = YKVPDS(JI) + YVKDP(JI)*ZDSIG
+                  YSDTMD(JI) = ZSIGH*YNVPDS(JI) - YKVPDS(JI)
+                  YKSDOT(JI) = YSDTMD(JI) + ZSIGH*YNDDS(JI)
+     A                         - YKDDS(JI)
+  521          CONTINUE
+C
+CL            5.4       REST OF ROTATION TERMS, TEMPERATURE
+C
+               DO 541 JI = 1,NLON
+                  YFU(JI,JJ,JK) = YFU(JI,JJ,JK) - ZR2DS*YKSDOT(JI)
+     A              *(YU(JI,JJ,JK+1)-YUKM1(JI))
+                  YFV(JI,JJ,JK) = YFV(JI,JJ,JK) - ZR2DS*YKSDOT(JI)
+     A              *(YV(JI,JJ,JK+1)-YVKM1(JI))
+                  YT2(JI,JJ,JK) = YT2(JI,JJ,JK) - ZR2DS*YKSDOT(JI)
+     A              *(YT(JI,JJ,JK+1)-YTKM1(JI))
+  541          CONTINUE
+C
+            ENDIF
+ 
+  560 CONTINUE
+C
+CL            5.7       COMPUTE TM1+TV-T+DT*T2
+C
+      DO 575 JK = 1,NLEV
+C             USE T-PRIME INSTEAD OF T-BAR,LATER OPERATED ON BY DEL**2
+            DO 571 JI = 1,NLON
+c              yr in next stmt used to be ytvm1, equived to yr
+               YR(JI,JJ,JK) = 0.5*YTM1(JI,JJ,JK) + YTV(JI,JK)
+     A                      - YT(JI,JJ,JK)
+  571       CONTINUE
+  575 CONTINUE
+C----------------------------------------------------------------------
+C
+CL            6.        CALC. PART R OF RHS DIVERGENCE EQUATION
+C                       ----  ---- - -- --- ---------- --------
+C
+      DO 650 JK = 1,NLEV
+C
+         IJKM=(JK-1)*NLEV
+C        0.5 factor removed from next line: BUGFIX2 CCM1MODS 7/89
+         ZG = G(IJKM+JK)
+         ZHRT0 = 0.5*RAIR*T0(JK)
+C
+CL            6.2       COMPUTE FIRST PART OF R
+C
+            DO 621 JI = 1,NLON
+c              zg*yr(ji,jj,jk) used to be ytvm1, equived to yr
+               YR(JI,JJ,JK) = YFI(JI,JJ) + ZHRT0*YLPSM1(JI,JJ)
+     A                      + YE(JI,JK) + ZG*YR(JI,JJ,JK)
+  621       CONTINUE
+C
+            IJKP=JK+1
+C
+CL            6.3       COMPUTE SECOND PART OF R
+C
+            IF (IJKP.LE.NLEV) THEN
+               DO 632 JK2=IJKP,NLEV
+                  ZG2 = G(IJKM+JK2)
+                  DO 631 JI = 1,NLON
+c                    yr(ji,jj,jk2) used to be ytvm1, equived to yr
+                     YR(JI,JJ,JK) = YR(JI,JJ,JK) + ZG2*YR(JI,JJ,JK2)
+  631             CONTINUE
+  632          CONTINUE
+            ENDIF
+C
+  650 CONTINUE
+C
+C----------------------------------------------------------------------
+C
+CL            7.        ADD TENDENCIES TO PREVIOUS TIMESTEP VALUES OF
+CL                      --- ---------- -- -------- -------- ------ --
+CL                      PROGNOSTIC VARIABLES LN(PSTAR) AND T
+CL                      ---------- --------- --------- --- -
+C
+CL            7.1       SURFACE PRESSURE
+C
+         DO 711 JI = 1,NLON
+            YLPSM1(JI,JJ) = YLPSM1(JI,JJ) - TWODT*YNVPDS(JI)
+  711    CONTINUE
+C
+      DO 715 JK=1,NLEV
+         ZDTDS = DTIME*DSIGMA(JK)
+            DO 712 JI = 1,NLON
+               YLPSM1(JI,JJ) = YLPSM1(JI,JJ) - ZDTDS*YDM1(JI,JJ,JK)
+  712       CONTINUE
+  715 CONTINUE
+C
+CL         7.2          TEMPERATURE
+C
+      DO 722 JK = 1,NLEV
+            DO 721 JI = 1,NLON
+               YTM1(JI,JJ,JK) = YTM1(JI,JJ,JK) + TWODT*YT2(JI,JJ,JK)
+  721       CONTINUE
+  722 CONTINUE
+C
+      DO 727 JK1 = 1,NLEV
+         DO 726 JK2 = 1,NLEV
+            ZDTTAU = DTIME * TAU(NLEV*(JK1-1) + JK2)
+               DO 725 JI = 1,NLON
+                  YTM1(JI,JJ,JK1) = YTM1(JI,JJ,JK1)
+     A                            - ZDTTAU * YDM1(JI,JJ,JK2)
+  725          CONTINUE
+  726    CONTINUE
+  727 CONTINUE
+C
+      RETURN
+      END
+C
+C ***************************** HORDIF ********************************
+C
+      SUBROUTINE HORDIF (VMAX)
+C----------------------------------------------------------------------
+C
+CL            HORIZONTAL DIFFUSION OF Z,D,T
+CL            IMPLICIT DEL**2 FORM ABOVE LEVEL KDEL4
+CL            IMPLICIT DEL**4 FORM LEVEL KDEL4 AND BELOW
+C
+CL            VMAX = MAX SPEED AT EACH LEVEL (TIME N) FOR COURANT
+CL                   TRUNCATION
+C
+C----------------------------------------------------------------------
+#include <PARAMS.h>
+C----------------------------------------------------------------------
+#include <COMCON.h>
+C----------------------------------------------------------------------
+#include <COMDIF.h>
+C---------------------------------------------------------------------
+#include <COMLUN.h>
+C---------------------------------------------------------------------
+#include <COMMAP.h>
+C----------------------------------------------------------------------
+#include <COMSDT.h>
+C----------------------------------------------------------------------
+#include <COMSPE.h>
+C---------------------------------------------------------------------
+#include <COMTIM.h>
+C----------------------------------------------------------------------
+#include <COMTRU.h>
+C----------------------------------------------------------------------
+      DIMENSION
+     *  VMAX(NLEV)
+C----------------------------------------------------------------------
+c     del4 horiz difn in layers kdel4 to nlev
+c     del2 horiz difn in layers kdel2inc+1 to kdel4-1
+c     del2 horiz difn enhanced (2**..) in layers 1 to kdel2inc
+c     Courant truncation in layers 1 to kcourant
+c     (kdel4, kdel2inc, kcourant are in comdif)
+ 
+c     Set kcourant in data stmt for first calc of vmax in
+c     subr dyn, and k* for setting in first call below
+      DATA KDEL4, KDEL2INC, KCOURANT /0, 0, 0/
+ 
+      DIMENSION NCOUR(NLEV), COURNUM(NLEV)
+      LOGICAL FIRST
+      SAVE FIRST
+      DATA FIRST /.TRUE./
+C----------------------------------------------------------------------
+ 
+c        If first call, set kdel4,kdel2inc,kcourant and basic del2 and
+c        del4 diffusion factors (in comdif)
+ 
+      IF (FIRST) THEN
+ 
+        DO 2 JK=1,NLEV
+          IF (SIG(JK).GT.0.050 .AND. KDEL4.   EQ.0   ) KDEL4    = JK
+    2   CONTINUE
+
+        zlev = 0.100   ! 0.350
+        if (scourant.ne.-999.) zlev = scourant
+        DO 4 JK=NLEV,1,-1
+          IF (SIG(JK).LT.0.018 .AND. KDEL2INC.EQ.0) KDEL2INC = JK
+          IF (SIG(JK).LT. zlev .AND. KCOURANT.EQ.0) KCOURANT = JK
+    4   CONTINUE
+c       write (nout,'("hordif: kdel2inc=",i3)') kdel2inc
+c       if (kdel2inc.ne.0) write (nout,'(13x,"sig=",f6.3)')sig(kdel2inc)
+c       write (nout,'("hordif: kcourant=",i3)') kcourant
+c       if (kcourant.ne.0) write (nout,'(13x,"sig=",f6.3)')sig(kcourant)
+ 
+c       Set to previous Genesis (v1.02) values for 12 levels
+        IF (NLEV.LE.12) THEN
+          KDEL4 = 4
+          KDEL2INC = 0
+          KCOURANT = 1
+        ENDIF
+ 
+        HDIFT2(1) = 0.
+        HDIFZ2(1) = 0.
+        HDIFT4(1) = 0.
+        HDIFZ4(1) = 0.
+        DO 10 N=2,NPMAX
+          HDIFT2(N) = DIF2* SQ(N)
+          HDIFZ2(N) = DIF2*(SQ(N)-2.*(RA**2))
+          HDIFT4(N) = DIF4* SQ(N)*SQ(N)
+          HDIFZ4(N) = DIF4*(SQ(N)*SQ(N)-4.*(RA**4))
+          hdift4(n) = 0.05 * hdift4(n) ! 777777
+   10   CONTINUE
+ 
+        FIRST = .FALSE.
+      ENDIF
+ 
+c        Set Courant truncation indices
+ 
+      DO 50 JK=1,NLEV
+        NCOUR(JK) = 1000000000
+   50 CONTINUE
+ 
+      DO 52 JK=1,KCOURANT
+c       COURNUM(JK) = 1.009 * VMAX(JK)*DTIME*NTRK/REARTH
+c       IF (COURNUM(JK).GT.1.) NCOUR(JK) = INT(NTRK/COURNUM(JK) + 1.)
+c       COURNUM(JK) =         VMAX(JK)*DTIME*NTRK/REARTH
+c       IF (COURNUM(JK).GT.0.60) NCOUR(JK)= NINT(NTRK/(COURNUM(JK)+.40))
+        COURNUM(JK) =         VMAX(JK)*DTIME*NTRK/REARTH
+        IF (COURNUM(JK).GT.0.99) NCOUR(JK)= NINT(NTRK/(COURNUM(JK)+.01))
+   52 CONTINUE
+ 
+c        Truncation index at each level applies to all levels above it:
+c        (as per comments in ccm2 code)
+ 
+c     DO 54 JK = KCOURANT-1,1,-1
+c       NCOUR(JK) = MIN (NCOUR(JK), NCOUR(JK+1))
+c  54 CONTINUE
+ 
+c        Set horiz diffusion factors (in comdif)
+ 
+      DO 100 JK=1,NLEV
+ 
+        IF (JK.GE.KDEL4) THEN
+          DO 110 N=1,NPMAX
+            HDIFT(N,JK) = HDIFT4(N)
+            HDIFZ(N,JK) = HDIFZ4(N)
+  110     CONTINUE
+        ELSE
+          Z = 2.**MAX((KDEL2INC-JK+1),0)
+          DO 112 N=1,NPMAX
+            HDIFT(N,JK) = HDIFT2(N)*Z
+            HDIFZ(N,JK) = HDIFZ2(N)*Z
+  112     CONTINUE
+        ENDIF
+ 
+        IF (JK.LE.KCOURANT .AND. NCOUR(JK).LE.NPMAX) THEN
+          DO 120 N=NCOUR(JK),NPMAX
+            HDIFT(N,JK) = 1000.*HDIFT(N,JK)
+            HDIFZ(N,JK) = 1000.*HDIFZ(N,JK)
+  120     CONTINUE
+        ENDIF
+ 
+  100 CONTINUE
+ 
+      DO 200 JK=1,NLEV
+        DO 202 N=1,NPMAX
+          HFACT(N,JK) = 1./(1.+TWODT*HDIFT(N,JK))
+          HFACZ(N,JK) = 1./(1.+TWODT*HDIFZ(N,JK))
+  202   CONTINUE
+  200 CONTINUE
+ 
+c        Apply horiz diffusion to Z,D,T
+ 
+      DO 300 JK=1,NLEV
+        DO 302 JN=1,NMAX
+           DO 304 JMA=1,2*MTRUNC(JN)
+             JM=(JMA+1)/2
+             JTRUE=JM+JN-1
+             VZ(JMA,JN,JK) = HFACZ(JTRUE,JK) * VZ(JMA,JN,JK)
+              D(JMA,JN,JK) = HFACZ(JTRUE,JK) *  D(JMA,JN,JK)
+              T(JMA,JN,JK) = HFACT(JTRUE,JK) *  T(JMA,JN,JK)
+  304      CONTINUE
+  302   CONTINUE
+  300 CONTINUE
+ 
+c     if ( mod(nstep,nint(86400./dtime)).eq.0 ) then
+c       write(*,500) nstep-nrstrt+1,
+c    *             (k,vmax(k),cournum(k),min(ncour(k),999),k=1,kcourant)
+c 500   format(/ 'nstep=',i6,'  k    vmax cournum  ncour'
+c    *         /('      ',6x,  i3,   f8.1,  f8.3,     i7))
+c     endif
+ 
+      RETURN
+      END
+C
+C ***************************** LEGA **********************************
+C
+ 
+      SUBROUTINE LEGA (YUT, YVT, YR, JJ, JJS, JJN)
+C---------------------------------------------------------------------
+C
+CL            CONVERT FROM NORTH/SOUTH FIELDS TO SYMMETRIC/ANTISYMMETRIC
+CL            FIELDS. JJS(JJN) IS FOR SH(NH), AND LATER FOR SYM(ANTISYM)
+CL            COMPONENT. CALLED ONE LATITUDE PAIR (JJ=JJS,JJN) AT A TIME
+CL            (FOR MULTIPROCESSING).
+C
+C---------------------------------------------------------------------
+#include <PARAMS.h>
+C---------------------------------------------------------------------
+#include <COMCON.h>
+C---------------------------------------------------------------------
+#include <COMLUN.h>
+C---------------------------------------------------------------------
+#include <COML10.h>
+C---------------------------------------------------------------------
+#include <COMMAP.h>
+C---------------------------------------------------------------------
+#include <COMMUN.h>
+C---------------------------------------------------------------------
+#include <COMTIM.h>
+C---------------------------------------------------------------------
+c     Part of old coml50, now passed by dyn
+      DIMENSION
+     *  YUT(NLON,NOREC,NLEV),       YVT(NLON,NOREC,NLEV),
+     *  YR(NLON,NOREC,NLEV)
+C---------------------------------------------------------------------
+      DIMENSION ZXM(MMAX)
+C---------------------------------------------------------------------
+C
+CL            1.2       CONVERT FROM NORTH/SOUTH FIELDS TO
+CL                      SYMMETRIC/ANTISYMMETRIC FIELDS.
+CL                      JJS IS FOR SH, AND LATER FOR SYM COMPONENT.
+CL                      JJN IS FOR NH, AND LATER FOR ASYM COMPONENT.
+C
+        DO 122 JM=1,2*MMAX
+          YLPSM1(JM,JJN) = (YLPSM1(JM,JJN)-YLPSM1(JM,JJS))*0.5
+          YLPSM1(JM,JJS) =  YLPSM1(JM,JJN)+YLPSM1(JM,JJS)
+  122   CONTINUE
+C
+        DO 124 JK=1,NLEV
+          DO 126 JM=1,2*MMAX
+            YTM1(JM,JJN,JK) = (YTM1(JM,JJN,JK)-YTM1(JM,JJS,JK))*0.5
+            YTM1(JM,JJS,JK) =  YTM1(JM,JJN,JK)+YTM1(JM,JJS,JK)
+            YDM1(JM,JJN,JK) = (YDM1(JM,JJN,JK)-YDM1(JM,JJS,JK))*0.5
+            YDM1(JM,JJS,JK) =  YDM1(JM,JJN,JK)+YDM1(JM,JJS,JK)
+            YZM1(JM,JJN,JK) = (YZM1(JM,JJN,JK)-YZM1(JM,JJS,JK))*0.5
+            YZM1(JM,JJS,JK) =  YZM1(JM,JJN,JK)+YZM1(JM,JJS,JK)
+C
+            YFU(JM,JJN,JK) = (YFU(JM,JJN,JK)-YFU(JM,JJS,JK))*0.5
+            YFU(JM,JJS,JK) =  YFU(JM,JJN,JK)+YFU(JM,JJS,JK)
+            YFV(JM,JJN,JK) = (YFV(JM,JJN,JK)-YFV(JM,JJS,JK))*0.5
+            YFV(JM,JJS,JK) =  YFV(JM,JJN,JK)+YFV(JM,JJS,JK)
+            YUT(JM,JJN,JK) = (YUT(JM,JJN,JK)-YUT(JM,JJS,JK))*0.5
+            YUT(JM,JJS,JK) =  YUT(JM,JJN,JK)+YUT(JM,JJS,JK)
+            YVT(JM,JJN,JK) = (YVT(JM,JJN,JK)-YVT(JM,JJS,JK))*0.5
+            YVT(JM,JJS,JK) =  YVT(JM,JJN,JK)+YVT(JM,JJS,JK)
+            YR(JM,JJN,JK) = (YR(JM,JJN,JK)-YR(JM,JJS,JK))*0.5
+            YR(JM,JJS,JK) =  YR(JM,JJN,JK)+YR(JM,JJS,JK)
+  126     CONTINUE
+  124   CONTINUE
+C
+CL            1.4       COMBINE SOME LATITUDINAL-GRID FIELDS
+C
+      DO 140 JHEM = 1,2
+        IF (JHEM.EQ.1) JJH = JJS
+        IF (JHEM.EQ.2) JJH = JJN
+C
+        DO 142 JM=1,MMAX
+          ZXM(JM) = 2. * DTIME * (1./(CS(JJH)*REARTH)) * XM(JM)
+  142   CONTINUE
+C
+        DO 144 JK=1,NLEV
+!DIR$ IVDEP
+          DO 146 JM=1,MMAX
+            JMR=2*JM-1
+            JMI=2*JM
+            YTM1(JMR,JJH,JK) = YTM1(JMR,JJH,JK)
+     A                        + ZXM(JM)*YUT(JMI,JJH,JK)
+            YTM1(JMI,JJH,JK) = YTM1(JMI,JJH,JK)
+     A                        - ZXM(JM)*YUT(JMR,JJH,JK)
+            YDM1(JMR,JJH,JK) = YDM1(JMR,JJH,JK)
+     A                        - ZXM(JM)*YFU(JMI,JJH,JK)
+            YDM1(JMI,JJH,JK) = YDM1(JMI,JJH,JK)
+     A                        + ZXM(JM)*YFU(JMR,JJH,JK)
+            YZM1(JMR,JJH,JK) = YZM1(JMR,JJH,JK)
+     A                        - ZXM(JM)*YFV(JMI,JJH,JK)
+            YZM1(JMI,JJH,JK) = YZM1(JMI,JJH,JK)
+     A                        + ZXM(JM)*YFV(JMR,JJH,JK)
+  146     CONTINUE
+  144   CONTINUE
+  140 CONTINUE
+C
+      RETURN
+      END
+C
+C ***************************** LEGB **********************************
+C
+      SUBROUTINE LEGB (YVT, YR)
+C---------------------------------------------------------------------
+C
+CL            LATITUDINAL CONTRIBUTION TO LEGENDRE TRANSFORM
+CL            (GRID TO SPECTRAL SPACE).
+C
+C---------------------------------------------------------------------
+#include <PARAMS.h>
+C---------------------------------------------------------------------
+#include <COMCON.h>
+C---------------------------------------------------------------------
+#include <COMLEG.h>
+C---------------------------------------------------------------------
+#include <COML10.h>
+C---------------------------------------------------------------------
+#include <COMMAP.h>
+C---------------------------------------------------------------------
+#include <COMMUN.h>
+C---------------------------------------------------------------------
+#include <COMSPE.h>
+C---------------------------------------------------------------------
+#include <COMTIM.h>
+C---------------------------------------------------------------------
+#include <COMTRU.h>
+C---------------------------------------------------------------------
+c     Part of old coml50, now passed by dyn
+      DIMENSION
+     *  YVT(NLON,NOREC,NLEV),       YR(NLON,NOREC,NLEV)
+C---------------------------------------------------------------------
+C
+CL            0.        ZERO SPECTRAL FIELDS
+C
+      CALL ZERO (VZ, 2*MMAX*NMAX*(3*NLEV+1))
+C
+C---------------------------------------------------------------------
+C
+CL            2.        COMPUTE SPECTRAL COEFFICIENTS. OUTER LOOP
+CL                      (FOR MULTIPROCESSING) OVER "JN" SPRECTAL INDEX.
+C
+#if defined ( omp )
+!$OMP PARALLEL DO DEFAULT (NONE)
+!$OMP* shared   (yvt, yr,
+!$OMP*           dtime, w, cs, rearth, twodt, mtrunc, sq,
+!$OMP*           alps, yalp, ydalp, ylpsm1, ytm1, yzm1, yfu, ydm1, yfv,
+!$OMP*           t, vz, d)
+!$OMP* private  (jj, jjs, jjn, jj1, jj2, jma, jm, jtrue, jk,
+!$OMP*           zw, ztdtrw, jn)
+!$OMP* schedule(dynamic,2)
+#endif
+ 
+C---------------------
+      DO 100 JN=1,NMAX
+C---------------------
+ 
+        DO 200 JJ=1,NOREC/2
+          JJS = JJ
+          JJN = NOREC-JJ+1
+C
+          ZW = 2. * W(JJ)
+          ZTDTRW = ZW * 2. * DTIME * (1./(CS(JJ)*REARTH))
+C
+          IF(MOD(JN,2).EQ.1) THEN
+            JJ1 = JJS
+            JJ2 = JJN
+          ELSE
+            JJ1 = JJN
+            JJ2 = JJS
+          ENDIF
+ 
+          DO 210 JMA=1,2*MTRUNC(JN)
+            JM=(JMA+1)/2
+            JTRUE = JM+JN-1
+            ALPS(JMA,JN) = ALPS(JMA,JN)
+     A                     + YLPSM1(JMA,JJ1)*YALP(JM,JN,JJ)*ZW
+C
+            DO 220 JK=1,NLEV
+              T(JMA,JN,JK) = T(JMA,JN,JK)
+     A                       + YTM1(JMA,JJ1,JK)* YALP(JM,JN,JJ)*ZW
+     B                       +  YVT(JMA,JJ2,JK)*YDALP(JM,JN,JJ)*ZTDTRW
+C
+              VZ(JMA,JN,JK) = VZ(JMA,JN,JK)
+     A                        + YZM1(JMA,JJ1,JK)* YALP(JM,JN,JJ)*ZW
+     B                        +  YFU(JMA,JJ2,JK)*YDALP(JM,JN,JJ)*ZTDTRW
+C
+              D(JMA,JN,JK) = D(JMA,JN,JK)
+     A               + (YDM1(JMA,JJ1,JK)+YR(JMA,JJ1,JK)*TWODT*SQ(JTRUE))
+     B                  *YALP(JM,JN,JJ)*ZW
+     C                - YFV(JMA,JJ2,JK)*YDALP(JM,JN,JJ)*ZTDTRW
+  220       CONTINUE
+ 
+  210     CONTINUE
+  200   CONTINUE
+C
+C-------------
+  100 CONTINUE
+C-------------
+C
+      RETURN
+      END
+C
+C ***************************** PHCS **********************************
+C
+      SUBROUTINE PHCS (PMN,HMN,MAX,JMAX,X1)
+C----------------------------------------------------------------------
+C
+CL            COMPUTE ASSOCIATED LEGENDRE POLYNOMIALS AND DERIVATIVES
+CL            FOR VALUE X1
+C
+C----------------------------------------------------------------------
+C
+      DIMENSION PMN(*),HMN(*),XTEMP(3,400)
+C
+      NMAX = MAX + JMAX
+      IF (NMAX.GT.400) THEN
+         CALL MESAGE(40HERROR IN CALL TO PHCS, NMAX.GT.400      )
+         CALL IVAR(8HMAX =   ,MAX)
+         CALL IVAR(8HJMAX =  ,JMAX)
+         CALL ENDRUN (-1)
+      ENDIF
+      XTE = SQRT(1.-X1*X1)
+      TETA = ACOS(X1)
+      AN = 1.
+      XTEMP(1,1) = 0.5
+      DO 20 N=2,NMAX
+         SINPAR = 0.
+         COSPAR = 0.
+         ML = N
+         P = N - 1
+         P2 = P*P
+         SQP = 1./SQRT(P2+P)
+         AN = AN*SQRT(1.-1./(4*P2))
+         COSFAK = 1.
+         SINFAK = P*SQP
+         DO 14 K=1,ML,2
+            Q = K - 1
+            ATETA = (P-Q)*TETA
+            COSTET = COS(ATETA)
+            SINTET = SIN(ATETA)
+            IF (N.EQ.K) COSTET = COSTET*0.5
+            IF (K.NE.1) THEN
+               COSFAK = (Q-1.)/Q*(P+P-Q+2)/(P+P-Q+1.)*COSFAK
+               SINFAK = COSFAK*(P-Q)*SQP
+            ENDIF
+            COSPAR = COSPAR + COSTET*COSFAK
+            SINPAR = SINPAR + SINTET*SINFAK
+14       CONTINUE
+         XTEMP(1,N) = AN*COSPAR
+         XTEMP(2,N-1) = AN*SINPAR
+20    CONTINUE
+      PMN(1) = 0.5
+      PMN(1+JMAX) = XTEMP(2,1)
+      HMN(1) = 0.
+      HMN(1+JMAX) = X1*XTEMP(2,1)
+      DO 21 N=2,JMAX
+         PMN(N) = XTEMP(1,N)
+         PMN(N+JMAX) = XTEMP(2,N)
+         N2 = N + N
+         HMN(N) = FLOAT(N-1)*(X1*XTEMP(1,N)-
+     *            SQRT(FLOAT(N2-1)/FLOAT(N2-3))
+     *            *XTEMP(1,N-1))
+         HMN(N+JMAX) = FLOAT(N)*X1*XTEMP(2,N)-
+     *                 SQRT(FLOAT((N2+1)*(N*N-1))/
+     *                 FLOAT(N2-1))*XTEMP(2,N-1)
+   21 CONTINUE
+      DO 30 M=3,MAX
+         R = M - 1
+         RR = R + R
+         XTEMP(3,1) = SQRT(1.+1./RR)*XTE*XTEMP(2,1)
+         NTO = (M-1)*JMAX
+         PMN(NTO+1) = XTEMP(3,1)
+         HMN(NTO+1) = R*X1*XTEMP(3,1)
+         NMAXM = NMAX - M
+         DO 24 J=2,NMAXM
+            MTO = NTO + J
+            T = J - 1
+            Q = RR + T - 1
+            WM2 = Q + T
+            W = WM2 + 2
+            WQ = W*Q
+            Q2 = Q*Q - 1
+            WMQ2 = WM2*Q2
+            WT = W*T
+            Q2D = Q2 + Q2
+            CMN = SQRT((WQ*(Q-2.))/(WMQ2-Q2D))
+            XDMN = SQRT((WQ*(T+1.))/WMQ2)
+            EMN = SQRT(WT/((Q+1.)*WM2))
+            XTEMP(3,J)=CMN*XTEMP(1,J) -
+     R                 X1*(XDMN*XTEMP(1,J+1)-EMN*XTEMP(3,J-1))
+            PMN(MTO) = XTEMP(3,J)
+            HMN(MTO) = (R+T)*X1*XTEMP(3,J) -
+     R                 SQRT(WT*(Q+1.)/WM2)*XTEMP(3,J-1)
+24       CONTINUE
+         DO 27 N=1,NMAX
+            XTEMP(1,N) = XTEMP(2,N)
+            XTEMP(2,N) = XTEMP(3,N)
+27       CONTINUE
+  30  CONTINUE
+      RETURN
+      END
+C
+C ***************************** QREIG *********************************
+C
+      SUBROUTINE QREIG (A,I,B)
+C----------------------------------------------------------------------
+C
+CL            CREATE COMPLEX MATRIX B USING A FOR REAL PART,
+CL            IMAGINARY PART = 0
+C
+C----------------------------------------------------------------------
+#include <PARAMS.h>
+C----------------------------------------------------------------------
+      DIMENSION A(*),B(*),INTA(NLEV)
+C
+      COMPLEX P(NLEV2),Q(NLEV2)
+C
+      L = 0
+      DO 10 IJ=1,I
+      DO 10 IK=1,I
+         L = L + 1
+         P(L) = CMPLX(A(L),0.)
+10    CONTINUE
+C
+      CALL COMHEG(P,I,1,I,INTA)
+      CALL COMLRG(P,Q,I)
+C
+      DO 20 IJ=1,I
+         B(IJ) = REAL(Q(IJ))
+20    CONTINUE
+C
+      RETURN
+      END
+C
+C ***************************** SCAN2 *********************************
+C
+      SUBROUTINE SCAN2 (YQ_SIG)
+C---------------------------------------------------------------------
+C
+CL            TRANSFORM UPDATED SPECTRAL FIELDS BACK TO GRID SPACE
+C
+C---------------------------------------------------------------------
+#include <PARAMS.h>
+C---------------------------------------------------------------------
+#include <COMCON.h>
+C---------------------------------------------------------------------
+#include <COMDIF.h>
+C---------------------------------------------------------------------
+#include <COMLUN.h>
+C---------------------------------------------------------------------
+#include <COML30.h>
+C---------------------------------------------------------------------
+#include <COMMAP.h>
+C---------------------------------------------------------------------
+#include <COMSDT.h>
+C---------------------------------------------------------------------
+#include <COMTIM.h>
+C---------------------------------------------------------------------
+c     Use yq_sig (at time n) since yq in coml30 is now on hybrid coords
+      DIMENSION YQ_SIG(NLON,NOREC,NLEV)
+C---------------------------------------------------------------------
+      DIMENSION XTEMPT(NLON,NLEV)
+C---------------------------------------------------------------------
+C
+CL            1.2       CALCULATE LATITUDINAL GRID POINT VALUES. LOOP
+CL                      OVER LATITUDE PAIRS HERE FOR MULTIPROCESSING.
+C
+#if defined ( omp )
+!$OMP PARALLEL DO DEFAULT (NONE)
+!cmic$* shared ()
+!$OMP* private (jj, jjs, jjn)
+!$OMP* schedule(dynamic,2)
+#endif
+C
+      DO 100 JJ=1,NOREC/2
+        JJS = JJ
+        JJN = NOREC-JJ+1
+        CALL GRCALC (JJ, JJS, JJN)
+  100 CONTINUE
+C
+CL            1.3       FOURIER ANALYZE IN LONGITUDE TO RECOVER
+CL                      GRID VALUES
+C
+#ifdef sundebug
+      call fftccm( yf,          norec, 1)
+      call fftccm( yu,     nlev*norec, 1)
+      call fftccm( yv,     nlev*norec, 1)
+      call fftccm( ylps,        norec, 1)
+      call fftccm( yt,     nlev*norec, 1)
+      call fftccm( yz,     nlev*norec, 1)
+      call fftccm( yd,     nlev*norec, 1)
+#else
+      CALL FFTCCM (YF(1,1),     (5*NLEV+2)*NOREC, 1)
+#endif
+
+#ifdef sundebug
+      call fftccm( yduh,   nlev*norec, 1)
+      call fftccm( ydvh,   nlev*norec, 1)
+      call fftccm( ydth,   nlev*norec, 1)
+      call fftccm( ydpsl,       norec, 1)
+      call fftccm( ydpsm,       norec, 1)
+#else
+      CALL FFTCCM (YDUH(1,1,1), (3*NLEV+2)*NOREC, 1)
+#endif
+C
+CL            1.4       LOOP OVER LATITUDE
+C
+      DO 115 JJ=1,NOREC
+         ZRC = RCS(JJ)
+C
+C             COMPLETE HORIZONTAL DIFFUSION
+C
+         DO 118 JK=KDEL4,NLEV
+C
+            IF (JK.EQ.1) THEN
+               ALPHAP = SIG(JK)/(SIG(JK+1)-SIG(JK))
+               ALPHAM = 0.
+            ELSE IF (JK.EQ.NLEV) THEN
+               ALPHAP = 0.
+               ALPHAM = SIG(JK)/(SIG(JK)-SIG(JK-1))
+            ELSE
+               ALPHAP = SIG(JK)/(SIG(JK+1)-SIG(JK-1))
+               ALPHAM = SIG(JK)/(SIG(JK+1)-SIG(JK-1))
+            ENDIF
+C
+            JKM1 = MAX ( JK-1, 1)
+            JKP1 = MIN ( JK+1, NLEV)
+C
+            DO 117 JI=1,NLON
+               XTEMPT(JI,JK) = YF(JI,JJ)
+     A                    * ( ALPHAP * (YT(JI,JJ,JKP1) - YT(JI,JJ,JK))
+     B                      + ALPHAM * (YT(JI,JJ,JK) - YT(JI,JJ,JKM1)))
+  117       CONTINUE
+C
+  118    CONTINUE
+C
+C             ADD CORRECTION TERMS
+C
+         DO 120 JK=KDEL4,NLEV
+            DO 119 JI=1,NLON
+C
+C             ADD CORRECTION TO T HORIZ DIFFUSION
+C
+               YDTH(JI,JJ,JK) = YDTH(JI,JJ,JK) + XTEMPT(JI,JK)/TWODT
+C
+C             ADD CORRECTION TO T
+C
+               YT(JI,JJ,JK) = YT(JI,JJ,JK) + XTEMPT(JI,JK)
+C
+C             CONVERT MOMENTUM DIFFUSIONS TO HEATING RATES
+C
+               YDUH(JI,JJ,JK)= -YU(JI,JJ,JK) * YDUH(JI,JJ,JK) * ZRC
+     A                         / (CPAIR*(1. + CPVIR*YQ_SIG(JI,JJ,JK)))
+               YDVH(JI,JJ,JK)= -YV(JI,JJ,JK) * YDVH(JI,JJ,JK) * ZRC
+     A                         / (CPAIR*(1. + CPVIR*YQ_SIG(JI,JJ,JK)))
+C
+C             ADD FRICTIONAL HEATING TO TEMPERATURE
+C
+               YT(JI,JJ,JK) = YT(JI,JJ,JK)
+     A                      + TWODT * (YDUH(JI,JJ,JK) + YDVH(JI,JJ,JK))
+C
+  119       CONTINUE
+  120    CONTINUE
+C
+  115 CONTINUE
+C
+      RETURN
+      END
+C
+C ***************************** SETTAU ********************************
+C
+      SUBROUTINE SETTAU
+C
+C----------------------------------------------------------------------
+C
+CL            SET MATRICES DEPENDENT ON T-ZERO ASSOCIATED WITH
+CL            SEMI-IMPLICIT TIME STEP.
+C
+C----------------------------------------------------------------------
+#include <PARAMS.h>
+C---------------------------------------------------------------------
+#include <COMCON.h>
+C---------------------------------------------------------------------
+#include <COMIMP.h>
+C---------------------------------------------------------------------
+#include <COMLUN.h>
+C---------------------------------------------------------------------
+#include <COMMAP.h>
+C---------------------------------------------------------------------
+#include <COMSPE.h>
+C---------------------------------------------------------------------
+#include <COMTIM.h>
+C---------------------------------------------------------------------
+      DIMENSION ZB(NLEV2),ZCR(NLEV),WORK(NLEV,2),IPVT(NLEV),ZDET(2)
+C----------------------------------------------------------------------
+C     SET "MEAN" TEMPERATURE PROFILE T0() IN A DATA STATEMEMT SO IT CAN
+C     BE USED BEFORE SETTAU CALLED.
+C
+      DATA (T0(K),K=1,NLEV) /NLEV*300./
+C----------------------------------------------------------------------
+C
+CL            1.        PRESET VARIABLES
+C                       ------ ---------
+      INL2=NLEV*NLEV
+C
+      ZDT2=DTIME*DTIME
+C
+CL            3.2       CALCULATE MATRIX TAU AS IN ECMWF
+C
+      ZT0PM=T0(2)-T0(1)
+      TAU(1)=.5*(ZT0PM*(DSIGMA(1)-1.))
+     A + CAPPA*T0(1) *AG(1)
+C
+      DO 321 JL=2,NLEV
+      TAU(JL)=0.5*ZT0PM*DSIGMA(JL)
+  321 CONTINUE
+C
+      ZSH = SIGKMH(2)
+      IT=NLEV
+      DO 324 JK=2,NLEV
+      ZTM=ZT0PM
+      IF(JK.LT.NLEV)GO TO 3211
+      ZT0PM=0.
+      GO TO 3212
+ 3211 CONTINUE
+      ZT0PM=T0(JK+1)-T0(JK)
+ 3212 CONTINUE
+      ZSHM=ZSH
+      ZSH = SIGKMH(JK+1)
+      ZR2DS=R2DSIG(JK)
+      ZT0K=T0(JK)
+C
+      DO 322 JL=1,NLEV
+      TAU(IT+JL)=ZR2DS*(ZT0PM*ZSH+ZTM*ZSHM)*DSIGMA(JL)
+  322 CONTINUE
+C
+      IJL=1
+      DO 323 JL=1,JK
+      IF(JL.EQ.JK)IJL=0.
+      TAU(IT+JL)=TAU(IT+JL)-ZR2DS*(ZT0PM+IJL*ZTM)*DSIGMA(JL)
+     A  + CAPPA*ZT0K*AG(IT+JL)
+  323 CONTINUE
+C
+      IT=IT+NLEV
+  324 CONTINUE
+C
+CL            4.        COMPUTE AND INVERT MATRIX FOR SOLUTION OF
+CL                      HELMHOLTZ EQUATION
+C
+C
+CL            4.1       COMPUTE MATRIX B=G*TAU + R*T*PI
+CL                      (ASSUMES G HAS BEEN MULTIPLIED BY R IN SETCOM)
+C
+      IL=0
+      INS=1
+      DO 413 JK=1,NLEV
+C
+      DO 412 JL=1,NLEV
+      IN=INS
+      IL=IL+1
+      IM=JL
+      ZTD = T0(JK)*DSIGMA(JL)*RAIR
+C
+      DO 411 JN=1,NLEV
+      ZTD=ZTD + G(IN)*TAU(IM)
+      IN=IN+1
+      IM=IM+NLEV
+  411 CONTINUE
+C
+      ZB(IL)=ZTD
+      AQ(IL)=ZTD
+  412 CONTINUE
+C
+      INS=INS+NLEV
+  413 CONTINUE
+C
+CL            4.2       COMPUTE AND PRINT GRAVITY WAVE SPEEDS
+C
+      CALL QREIG(ZB,NLEV,ZCR)
+      DO 421 JL=1,NLEV
+      ZCR(JL)=SIGN(1.,ZCR(JL))*SQRT(ABS(ZCR(JL)))
+  421 CONTINUE
+C
+C     WRITE(NOUT,910) (T0(JL),JL=1,NLEV)
+C     WRITE(NOUT,920) (ZCR(JL),JL=1,NLEV)
+C
+CL            4.25      TEST FOR UNSTABLE MEAN TEMPERATURES
+C
+      NNEG=0
+      DO 423 JL=1,NLEV
+      IF(ZCR(JL).LE.0.) NNEG=NNEG+1
+  423 CONTINUE
+      IF(NNEG.EQ.0.) GO TO 424
+      WRITE(NOUT,910) (T0(JL),JL=1,NLEV)
+      WRITE(NOUT,920) (ZCR(JL),JL=1,NLEV)
+      WRITE(NOUT,930)
+      WRITE(NOUT,940)
+      WRITE(NOUT,930)
+      CALL ENDRUN (-1)
+  424 CONTINUE
+C
+CL            4.3       COMPUTE AND INVERT MATRIX
+CL                      A(N)=(I+SQ*B*DELT**2)
+C
+      DO 431 JL=1,INL2
+      AQ(JL)=AQ(JL)*ZDT2
+      BM1(JL)=0.
+  431 CONTINUE
+C
+      IBM1=INL2
+      DO 435 JTRUE=2,NPMAX
+      ZCN=SQ(JTRUE)
+      IL=0
+C
+      DO 432 JL=1,NLEV
+C
+      DO 432 JK=1,NLEV
+      IL=IL+1
+      ZB(IL)=ZCN*AQ(IL)
+      IF(JK.EQ.JL) ZB(IL)=ZB(IL) + 1.
+  432 CONTINUE
+C
+C     Old call to MINV replaced by SGEFA,SGEDI (LINPACK)
+C
+C     CALL MINV(ZB,NLEV,NLEV,WORK,ZDTR,1.0E-100,0,1)
+C
+      CALL SGEFA (ZB, NLEV, NLEV, IPVT, ICODE)
+      IF (ICODE.NE.0) THEN
+         WRITE(*,*) '*** Error from SGEFA in SETTAU: ICODE=',ICODE
+         CALL ENDRUN (-1)
+      ENDIF
+      CALL SGEDI (ZB, NLEV, NLEV, IPVT, ZDET, WORK, 11)
+C
+      DO 433 JL=1,INL2
+      BM1(IBM1+JL)=ZB(JL)
+  433 CONTINUE
+      IBM1=IBM1+INL2
+C
+  435 CONTINUE
+C
+C----------------------------------------------------------------------
+C
+CL            9.        FORMATS
+C
+  910 FORMAT(' MEAN TEMPERATURES FOR SEMI-IMPLICIT SCHEME = ',
+     1       /(1X,12F9.3))
+C
+  920 FORMAT(' GRAVITY WAVE SPEEDS FOR MEAN STATE IN M/SEC = '
+     A       /(1X,12F9.3))
+C
+  930 FORMAT(' ----------------------------------------------------')
+C
+  940 FORMAT(' UNSTABLE MEAN TEMPERATURE IN SETTAU. STOP.'/)
+C
+      RETURN
+      END
+C
+C ***************************** TRUNCAT *******************************
+C
+      SUBROUTINE TRUNCAT
+C----------------------------------------------------------------------
+C
+CL            CHECK AND COMPUTE TRUNCATION PARAMETERS.
+C
+C--------------------------------------------------------------------
+#include <PARAMS.h>
+C--------------------------------------------------------------------
+#include <COMTRU.h>
+C--------------------------------------------------------------------
+C
+C         GENERAL PENTAGONAL TRUNCATION PROPERTIES:
+C             0.LE.!M!.LE.NTRM
+C             !M!.LE.N.LE.!M!+NTRN FOR !M!.LE.NTRK-NTRN
+C             !M!.LE.N.LE.NTRK     FOR (NTRK-NTRN).LE.!M!.LE.NTRM
+C
+C         PARTICULAR CASES:
+C             1-RHOMBOIDAL TRUNCATION WITH  NTRK=NTRM+NTRN
+C             2-TRAPEZOIDAL TRUNCATION WITH NTRK=NTRN
+C             3-TRIANGULAR TRUNCATION WITH  NTRK=NTRM=NTRN
+C
+C         WE MUST HAVE: NTRM.GE.NTRK-NTRN.GE.0
+C
+      IF(NTRM.LT.(NTRK-NTRN)) GO TO 910
+      IF(NTRK.LT.NTRN) GO TO 920
+C
+C         MTRUNC(N) IS THE NUMBER OF m-DEGREE POLYS FOR EACH DIAGONAL.
+C         M INDEX RUNS FROM 1 TO MTRUNC(N), REPRESENTING (m,n) DEGREES
+C         (0,N-1) TO (MTRUNC(N)-1,N+MTRUNC(N)-2).
+C         MTRUNC(1) = MMAX, AND OTHER MTRUNC's = MMAX TOO EXCEPT FOR
+C         TRUNCATION BY NPMAX-1, THE LARGEST n-DEGREE.
+C         (NOTE: THE TRUE MATHEMATICAL n-degree IS JM+JN-2, WHERE JM
+C         AND JN ARE THE PROGRAM'S SPECTRAL ARRAY INDICES. THE INDEX
+C         INTO n-arrays RUNNING FROM 1 TO NMAX IS JM+JN-1.)
+C
+      DO 10 N=1,NMAX
+         MTRUNC(N) = MIN (MMAX, NPMAX-N+1)
+   10 CONTINUE
+      RETURN
+C
+CL        ERROR MESSAGES
+C
+910   CONTINUE
+      CALL MESAGE(40HERROR IN TRUNCATION PARAMETERS          )
+      CALL MESAGE(40H          NTRM.LT.(NTRK-NTRN)           )
+      CALL MESAGE(40H STOP IN SUBR.  TRUNC                   )
+      CALL ENDRUN (-1)
+920   CONTINUE
+      CALL MESAGE(40HERROR IN TRUNCATION PARAMETERS          )
+      CALL MESAGE(40H          NTRK.LT.NTRN                  )
+      CALL MESAGE(40H STOP IN SUBR. TRUNC                    )
+      CALL ENDRUN (-1)
+      END
+C
+C ***************************** TSTEPA ********************************
+C
+      SUBROUTINE TSTEPA
+C----------------------------------------------------------------------
+C
+CL            SOLUTION OF HELMHOLTZ EQUATION AND COMPLETION OF
+CL            TIMESTEP BY ADDING SEMI-IMPLICIT PART
+C
+C----------------------------------------------------------------------
+#include <PARAMS.h>
+C----------------------------------------------------------------------
+#include <COMTRU.h>
+C---------------------------------------------------------------------
+#include <COMTIM.h>
+C----------------------------------------------------------------------
+#include <COMIMP.h>
+C----------------------------------------------------------------------
+#include <COMMAP.h>
+C----------------------------------------------------------------------
+#include <COMSDT.h>
+C----------------------------------------------------------------------
+#include <COMSPE.h>
+C---------------------------------------------------------------------
+#include <COMCON.h>
+C---------------------------------------------------------------------
+      DIMENSION ZTEMP(MMAX2,NMAX,NLEV)
+C---------------------------------------------------------------------
+C
+C
+CL            2.        COMPLETE RHS OF HELMHOLTZ EQ.
+C                       -------- --- -- --------- --
+C
+      DO 200 JK=1,NLEV
+C
+CL            2.1      DIAGONAL TERMS
+C
+         ZDTG = DTIME * G((JK-1)*NLEV+JK)
+         ZDTRT0 = DTIME * RAIR * T0(JK)
+         DO 210 JN=1,NMAX
+            DO 212 JMA=1,2*MTRUNC(JN)
+               JM=(JMA+1)/2
+               JTRUE=JM+JN-1
+               D(JMA,JN,JK) = D(JMA,JN,JK) + SQ(JTRUE)
+     A                      * (ZDTG*T(JMA,JN,JK) + ZDTRT0*ALPS(JMA,JN))
+  212       CONTINUE
+  210    CONTINUE
+C
+         IF (JK.EQ.NLEV) THEN
+C
+CL            2.3       NONTRIANGULAR TERMS OF G
+C
+            JKM1=JK-1
+            ZDTG = DTIME * G((JK-1)*NLEV+JKM1)
+            DO 230 JN=1,NMAX
+               DO 232 JMA=1,2*MTRUNC(JN)
+                  JM=(JMA+1)/2
+                  JTRUE=JM+JN-1
+                  D(JMA,JN,JK) = D(JMA,JN,JK)
+     A                           + SQ(JTRUE)*ZDTG*T(JMA,JN,JKM1)
+  232          CONTINUE
+  230       CONTINUE
+C
+         ELSE
+C
+CL            2.5       TRIANGULAR TERMS OF G
+C
+            DO 250 JL=JK+1,NLEV
+               ZDTG = DTIME * G((JK-1)*NLEV+JL)
+               DO 252 JN=1,NMAX
+                  DO 254 JMA=1,2*MTRUNC(JN)
+                     JM=(JMA+1)/2
+                     JTRUE=JM+JN-1
+                     D(JMA,JN,JK) = D(JMA,JN,JK)
+     A                              + SQ(JTRUE)*ZDTG*T(JMA,JN,JL)
+  254             CONTINUE
+  252          CONTINUE
+  250       CONTINUE
+C
+          ENDIF
+C
+  200 CONTINUE
+C
+C----------------------------------------------------------------------
+C
+CL            3.        SOLUTION OF HELMHOLTZ EQUATION
+C                       -------- -- --------- --------
+C
+CL            3.1       INITIALIZE TEMPORARY ARRAY
+C
+      CALL ZERO (ZTEMP, 2*MMAX*NMAX*NLEV)
+C
+CL            3.6       COMPUTE SOLUTION IN TEMPORARY ARRAY
+C
+      ILEV2 = NLEV*NLEV
+      DO 360 JL=1,NLEV
+        DO 362 JK=1,NLEV
+          IBM1 = JK + (JL-1)*NLEV
+C
+          DO 364 JN=1,NMAX
+            DO 366 JMA=1,2*MTRUNC(JN)
+              JM=(JMA+1)/2
+              JTRUE=JM+JN-1
+              ZTEMP(JMA,JN,JL) = ZTEMP(JMA,JN,JL)
+     A          + BM1 (IBM1 + (JTRUE-1)*ILEV2) * D(JMA,JN,JK)
+  366       CONTINUE
+  364     CONTINUE
+C
+  362   CONTINUE
+  360 CONTINUE
+C
+CL            3.7       STORE SOLUTION IN D ARRAY
+C
+      CALL SCOPY (2*MMAX*NMAX*NLEV, ZTEMP, 1, D, 1)
+C
+C----------------------------------------------------------------------
+C
+CL            4.        ADD SEMI-IMPLICIT PART TO LN(PSTAR) AND T
+C                       --- ---- -------- ---- -- --------- --- -
+C
+CL            4.2       ADD SEMI-IMPLICIT PART TO SURFACE PRESSURE
+C
+      DO 420 JK=1,NLEV
+         ZTDS = DTIME * DSIGMA(JK)
+         DO 422 JN=1,NMAX
+            DO 424 JMA=1,2*MTRUNC(JN)
+               ALPS(JMA,JN) = ALPS(JMA,JN) - ZTDS * D(JMA,JN,JK)
+  424       CONTINUE
+  422    CONTINUE
+  420 CONTINUE
+C
+CL            4.3       ADD SEMI-IMPLICIT PART TO TEMPERATURE
+C
+      DO 430 JL=1,NLEV
+         DO 432 JK=1,NLEV
+            ZTTAU = DTIME * TAU(JK+NLEV*(JL-1))
+            DO 434 JN=1,NMAX
+               DO 436 JMA=1,2*MTRUNC(JN)
+                  T(JMA,JN,JL) = T(JMA,JN,JL) - ZTTAU * D(JMA,JN,JK)
+  436          CONTINUE
+  434       CONTINUE
+  432    CONTINUE
+  430 CONTINUE
+C
+C----------------------------------------------------------------------
+C
+      RETURN
+      END
+C
+C ***************************** STATS *********************************
+C
+      SUBROUTINE STATS
+C---------------------------------------------------------------------
+C
+CL            SPECTRAL STATISTICS (CALLED FROM DYN).
+C
+C---------------------------------------------------------------------
+#include <PARAMS.h>
+C---------------------------------------------------------------------
+#include <COMCON.h>
+C---------------------------------------------------------------------
+#include <COMDYR.h>
+C---------------------------------------------------------------------
+#include <COMIMP.h>
+C---------------------------------------------------------------------
+#include <COMLUN.h>
+C---------------------------------------------------------------------
+#include <COML10.h>
+C---------------------------------------------------------------------
+#include <COML30.h>
+C---------------------------------------------------------------------
+#include <COMMAP.h>
+C---------------------------------------------------------------------
+#include <COMMUN.h>
+C---------------------------------------------------------------------
+#include <COMSDT.h>
+C---------------------------------------------------------------------
+#include <COMSTA.h>
+C---------------------------------------------------------------------
+#include <COMTIM.h>
+C---------------------------------------------------------------------
+      DIMENSION ZTMP(NLON)
+C---------------------------------------------------------------------
+C
+CL            0.        DO NOTHING UNLESS END OF DAY
+C                       -- ------- ------ --- -- ---
+C
+      N = 1. * 86400./DTIME + .001
+      IF (MOD(NSTEP,N).NE.0) RETURN
+C
+CL            1.        COMPUTE STATISTICS
+C                       ------- ----------
+C
+CL            1.1       ZERO ACCUMULATORS
+C
+      RMSZ=0.
+      RMSD=0.
+      RMST=0.
+      STPS=0.
+      STPE=0.
+      STKE=0.
+      STTE=0.
+      DO 110 JK=1,NLEV
+         VZ2(JK)=0.
+         D2(JK)=0.
+         T2(JK)=0.
+         PE(JK)=0.
+         PT(JK)=0.
+  110 CONTINUE
+      PS=0.
+      PFI=0.
+      ZRLON2=1./(2.*NLON)
+C
+CL            1.5       SUM OVER LATITUDE AND LONGITUDE
+C
+      DO 150 JJ=1,NOREC
+         ZW = W(JJ)
+         PS = PS + ZW * SSUM(NLON, YPS(1,JJ), 1)
+         PFI = PFI + ZW * SDOT(NLON, YPS(1,JJ), 1, YFI(1,JJ), 1)
+C
+         DO 152 JK=1,NLEV
+            ZT0 = T0(JK)*2.
+            ZT02 = T0(JK)*T0(JK)*NLON
+            VZ2(JK) = VZ2(JK)
+     A              + ZW * SDOT(NLON, YZ(1,JJ,JK), 1, YZ(1,JJ,JK), 1)
+            D2(JK) = D2(JK)
+     A              + ZW * SDOT(NLON, YD(1,JJ,JK), 1, YD(1,JJ,JK), 1)
+            T2(JK) = T2(JK)
+     A              + ZW * ( ZT02 + ZT0 * SSUM(NLON, YT(1,JJ,JK), 1)
+     A                  + SDOT(NLON, YT(1,JJ,JK), 1, YT(1,JJ,JK), 1) )
+C
+            ZHRC=0.5*RCS(JJ)
+            DO 154 JI=1,NLON
+               ZTMP(JI) = ZHRC * (YU(JI,JJ,JK)**2 + YV(JI,JJ,JK)**2)
+  154       CONTINUE
+            PE(JK) = PE(JK)
+     A              + ZW * SDOT(NLON, YPS(1,JJ), 1, ZTMP, 1)
+C
+            PT(JK) = PT(JK)
+     A              + ZW * SDOT(NLON, YPS(1,JJ), 1, YT(1,JJ,JK), 1)
+  152    CONTINUE
+  150 CONTINUE
+C
+CL            1.6       SUM OVER LEVELS
+C
+      DO 160 JK=1,NLEV
+         ZT0 = T0(JK)
+         ZDSIG = DSIGMA(JK)
+         RMSZ = RMSZ + VZ2(JK)*ZDSIG
+         RMSD = RMSD + D2(JK)*ZDSIG
+         RMST = RMST + T2(JK)*ZDSIG
+         STPE = STPE + CPAIR*(ZT0*PS+PT(JK))*ZDSIG
+         STKE = STKE + PE(JK)*ZDSIG
+  160 CONTINUE
+C
+CL            1.7       END OF STATISTICS
+C
+      DO 170 JK=1,NLEV
+         VZ2(JK) = SQRT(VZ2(JK)*ZRLON2)
+         D2(JK) = SQRT(D2(JK)*ZRLON2)
+         T2(JK) = SQRT(T2(JK)*ZRLON2)
+  170 CONTINUE
+      RMSZ = SQRT(ZRLON2*RMSZ)
+      RMSD = SQRT(ZRLON2*RMSD)
+      RMST = SQRT(ZRLON2*RMST)
+      STPS = ZRLON2*PS
+      STPE = ZRLON2*RGA*(STPE+PFI)
+      STKE = ZRLON2*RGA*STKE
+      STTE = STPE+STKE
+C
+CL            2.        WRITE OUT VERTICALLY INTEG STATS ONCE PER DAY
+C
+C     N = 1. * 86400./DTIME + .001
+C     IF (MOD(NSTEP,N).EQ.0) THEN
+C        WRITE(NOUT,900) NSTEP*DTIME/86400.,
+C    *   RMSZ,RMSD,RMST,STPS,STPE,STKE,STTE
+C 900    FORMAT(/20X, 'RMSZ', 10X, 'RMSD', 10X, 'RMST', 10X, 'STPS',
+C    A           10X, 'STPE', 10X, 'STKE', 10X, 'STTE'
+C    B          /' DAY =', F10.3, 7E14.6)
+C     ENDIF
+C
+CL            3.        WRITE OUT LEVEL-BY-LEVEL STATS EVERY 30 DAYS
+C
+C     N = 30. * 86400./DTIME + .001
+C     IF (MOD(NSTEP,N).EQ.0) THEN
+C        DO 950 JK=1,NLEV
+C           WRITE(NOUT,951) JK,VZ2(JK),D2(JK),T2(JK)
+C 951       FORMAT(8X,'JL=', I3, 3E14.6)
+C 950    CONTINUE
+C     ENDIF
+C
+      RETURN
+      END
+C
+C ***************************** OMCALC ********************************
+C
+      SUBROUTINE OMCALC
+C----------------------------------------------------------------------
+C
+CL            CALCULATE OMEGA
+C
+C----------------------------------------------------------------------
+#include <PARAMS.h>
+C----------------------------------------------------------------------
+#include <COMCON.h>
+C----------------------------------------------------------------------
+#include <COMIMP.h>
+C----------------------------------------------------------------------
+#include <COML30.h>
+C----------------------------------------------------------------------
+#include <COMMAP.h>
+C----------------------------------------------------------------------
+#include <COMMUN.h>
+C----------------------------------------------------------------------
+#include <COMSDT.h>
+C----------------------------------------------------------------------
+#include <COMTIM.h>
+C----------------------------------------------------------------------
+      DIMENSION  XDIV(NLON),  XADV(NLON),  XADVK(NLON)
+C----------------------------------------------------------------------
+C
+CL            0.0        LOOP OVER LATITUDE
+C
+      DO 10 JJ = 1,NOREC
+C
+CL            1.0        OUTER LOOP OVER LEVELS
+C
+        DO 100 JK = 1,NLEV
+C
+          CALL ZERO (XDIV, NLON)
+          CALL ZERO (XADV, NLON)
+          IJKM = (JK-1) * NLEV
+C
+C             2.0        LOOP FROM LEVEL 1 TO THE CURRENT LEVEL
+C                        TO EVALUATE VERTICAL INTEGRALS
+C
+          DO 200 JK2 = 1,JK
+C
+            IJK2 = IJKM + JK2
+            ZA = AG(IJK2)
+C
+            DO 210 JI = 1,NLON
+              XADVK(JI) = ( YU(JI,JJ,JK2) * YDPSL(JI,JJ)
+     A                     +YV(JI,JJ,JK2) * YDPSM(JI,JJ) )
+              XDIV(JI) = XDIV(JI) + ZA * YD(JI,JJ,JK2)
+              XADV(JI) = XADV(JI) + ZA * XADVK(JI)
+  210       CONTINUE
+C
+  200     CONTINUE
+C
+C             3.0       CALCULATE VERTICAL VELOCITY VOMEGA. NOTE THAT
+C                       XADVK AT THIS POINT HAS VALUES FOR LEVEL JK.
+C
+          DO 300 JI = 1,NLON
+            VOMEGA(JI,JJ,JK) = (XADVK(JI) - XDIV(JI) - XADV(JI))
+     A                         * SIG(JK) * YPS(JI,JJ)
+  300     CONTINUE
+C
+  100   CONTINUE
+C
+   10 CONTINUE
+C
+      RETURN
+      END
+C
+C ***************************** FFT99 ROUTINES *************************
+C
+C
+C     FFT SOURCE CODE OBTAINED FROM NCAR'S DSL UTILITY. ON NCAR CRAYS,
+C     USE ASSEMBLER-CODE VERSION IN LIBRARY ecmfft INSTEAD (FASTER).
+C
+C-------------
+#ifdef needfft
+C-------------
+C
+      SUBROUTINE FFT99(A,WORK,TRIGS,IFAX,INC,JUMP,N,LOT,ISIGN)
+C
+C PURPOSE      PERFORMS MULTIPLE FAST FOURIER TRANSFORMS.  THIS PACKAGE
+C              WILL PERFORM A NUMBER OF SIMULTANEOUS REAL/HALF-COMPLEX
+C              PERIODIC FOURIER TRANSFORMS OR CORRESPONDING INVERSE
+C              TRANSFORMS, I.E.  GIVEN A SET OF REAL DATA VECTORS, THE
+C              PACKAGE RETURNS A SET OF 'HALF-COMPLEX' FOURIER
+C              COEFFICIENT VECTORS, OR VICE VERSA.  THE LENGTH OF THE
+C              TRANSFORMS MUST BE AN EVEN NUMBER GREATER THAN 4 THAT HAS
+C              NO OTHER FACTORS EXCEPT POSSIBLY POWERS OF 2, 3, AND 5.
+C              THIS IS AN ALL-FORTRAN VERSION OF A OPTIMIZED ROUTINE
+C              FFT99 WRITTEN FOR XMP/YMPs BY DR. CLIVE TEMPERTON OF
+C              ECMWF.
+C
+C              THE PACKAGE FFT99F CONTAINS SEVERAL USER-LEVEL ROUTINES:
+C
+C            SUBROUTINE SET99
+C                AN INITIALIZATION ROUTINE THAT MUST BE CALLED ONCE
+C                BEFORE A SEQUENCE OF CALLS TO THE FFT ROUTINES
+C                (PROVIDED THAT N IS NOT CHANGED).
+C
+C            SUBROUTINES FFT99 AND FFT991
+C                TWO FFT ROUTINES THAT RETURN SLIGHTLY DIFFERENT
+C                ARRANGEMENTS OF THE DATA IN GRIDPOINT SPACE.
+C
+C USAGE        LET N BE OF THE FORM 2**P * 3**Q * 5**R, WHERE P .GE. 1,
+C              Q .GE. 0, AND R .GE. 0.  THEN A TYPICAL SEQUENCE OF
+C              CALLS TO TRANSFORM A GIVEN SET OF REAL VECTORS OF LENGTH
+C              N TO A SET OF 'HALF-COMPLEX' FOURIER COEFFICIENT VECTORS
+C              OF LENGTH N IS
+C
+C                   DIMENSION IFAX(13),TRIGS(3*N/2+1),A(M*(N+2)),
+C                  +          WORK(M*(N+1))
+C
+C                   CALL SET99 (TRIGS, IFAX, N)
+C                   CALL FFT99 (A,WORK,TRIGS,IFAX,INC,JUMP,N,M,ISIGN)
+C
+C              SEE THE INDIVIDUAL WRITE-UPS FOR SET99, FFT99, AND
+C              FFT991 BELOW, FOR A DETAILED DESCRIPTION OF THE
+C              ARGUMENTS.
+C
+C HISTORY      THE PACKAGE WAS WRITTEN BY CLIVE TEMPERTON AT ECMWF IN
+C              NOVEMBER, 1978.  IT WAS MODIFIED, DOCUMENTED, AND TESTED
+C              FOR NCAR BY RUSS REW IN SEPTEMBER, 1980.
+C
+C-----------------------------------------------------------------------
+C
+C SUBROUTINE SET99 (TRIGS, IFAX, N)
+C
+C PURPOSE      A SET-UP ROUTINE FOR FFT99 AND FFT991.  IT NEED ONLY BE
+C              CALLED ONCE BEFORE A SEQUENCE OF CALLS TO THE FFT
+C              ROUTINES (PROVIDED THAT N IS NOT CHANGED).
+C
+C ARGUMENT     IFAX(13),TRIGS(3*N/2+1)
+C DIMENSIONS
+C
+C ARGUMENTS
+C
+C ON INPUT     TRIGS
+C               A FLOATING POINT ARRAY OF DIMENSION 3*N/2 IF N/2 IS
+C               EVEN, OR 3*N/2+1 IF N/2 IS ODD.
+C
+C              IFAX
+C               AN INTEGER ARRAY.  THE NUMBER OF ELEMENTS ACTUALLY USED
+C               WILL DEPEND ON THE FACTORIZATION OF N.  DIMENSIONING
+C               IFAX FOR 13 SUFFICES FOR ALL N LESS THAN A MILLION.
+C
+C              N
+C               AN EVEN NUMBER GREATER THAN 4 THAT HAS NO PRIME FACTOR
+C               GREATER THAN 5.  N IS THE LENGTH OF THE TRANSFORMS (SEE
+C               THE DOCUMENTATION FOR FFT99 AND FFT991 FOR THE
+C               DEFINITIONS OF THE TRANSFORMS).
+C
+C ON OUTPUT    IFAX
+C               CONTAINS THE FACTORIZATION OF N/2.  IFAX(1) IS THE
+C               NUMBER OF FACTORS, AND THE FACTORS THEMSELVES ARE STORED
+C               IN IFAX(2),IFAX(3),...  IF SET99 IS CALLED WITH N ODD,
+C               OR IF N HAS ANY PRIME FACTORS GREATER THAN 5, IFAX(1)
+C               IS SET TO -99.
+C
+C              TRIGS
+C               AN ARRAY OF TRIGONOMETRIC FUNCTION VALUES SUBSEQUENTLY
+C               USED BY THE FFT ROUTINES.
+C
+C-----------------------------------------------------------------------
+C
+C SUBROUTINE FFT991 (A,WORK,TRIGS,IFAX,INC,JUMP,N,M,ISIGN)
+C                       AND
+C SUBROUTINE FFT99 (A,WORK,TRIGS,IFAX,INC,JUMP,N,M,ISIGN)
+C
+C PURPOSE      PERFORM A NUMBER OF SIMULTANEOUS REAL/HALF-COMPLEX
+C              PERIODIC FOURIER TRANSFORMS OR CORRESPONDING INVERSE
+C              TRANSFORMS, USING ORDINARY SPATIAL ORDER OF GRIDPOINT
+C              VALUES (FFT991) OR EXPLICIT CYCLIC CONTINUITY IN THE
+C              GRIDPOINT VALUES (FFT99).  GIVEN A SET
+C              OF REAL DATA VECTORS, THE PACKAGE RETURNS A SET OF
+C              'HALF-COMPLEX' FOURIER COEFFICIENT VECTORS, OR VICE
+C              VERSA.  THE LENGTH OF THE TRANSFORMS MUST BE AN EVEN
+C              NUMBER THAT HAS NO OTHER FACTORS EXCEPT POSSIBLY POWERS
+C              OF 2, 3, AND 5.  THIS IS AN ALL-FORTRAN VERSION OF
+C              OPTIMIZED ROUTINE FFT991 WRITTEN FOR XMP/YMPs BY
+C              DR. CLIVE TEMPERTON OF ECMWF.
+C
+C ARGUMENT     A(M*(N+2)), WORK(M*(N+1)), TRIGS(3*N/2+1), IFAX(13)
+C DIMENSIONS
+C
+C ARGUMENTS
+C
+C ON INPUT     A
+C               AN ARRAY OF LENGTH M*(N+2) CONTAINING THE INPUT DATA
+C               OR COEFFICIENT VECTORS.  THIS ARRAY IS OVERWRITTEN BY
+C               THE RESULTS.
+C
+C              WORK
+C               A WORK ARRAY OF DIMENSION M*(N+1)
+C
+C              TRIGS
+C               AN ARRAY SET UP BY SET99, WHICH MUST BE CALLED FIRST.
+C
+C              IFAX
+C               AN ARRAY SET UP BY SET99, WHICH MUST BE CALLED FIRST.
+C
+C              INC
+C               THE INCREMENT (IN WORDS) BETWEEN SUCCESSIVE ELEMENTS OF
+C               EACH DATA OR COEFFICIENT VECTOR (E.G.  INC=1 FOR
+C               CONSECUTIVELY STORED DATA).
+C
+C              JUMP
+C               THE INCREMENT (IN WORDS) BETWEEN THE FIRST ELEMENTS OF
+C               SUCCESSIVE DATA OR COEFFICIENT VECTORS.  ON CRAYS,
+C               TRY TO ARRANGE DATA SO THAT JUMP IS NOT A MULTIPLE OF 8
+C               (TO AVOID MEMORY BANK CONFLICTS).  FOR CLARIFICATION OF
+C               INC AND JUMP, SEE THE EXAMPLES BELOW.
+C
+C              N
+C               THE LENGTH OF EACH TRANSFORM (SEE DEFINITION OF
+C               TRANSFORMS, BELOW).
+C
+C              M
+C               THE NUMBER OF TRANSFORMS TO BE DONE SIMULTANEOUSLY.
+C
+C              ISIGN
+C               = +1 FOR A TRANSFORM FROM FOURIER COEFFICIENTS TO
+C                    GRIDPOINT VALUES.
+C               = -1 FOR A TRANSFORM FROM GRIDPOINT VALUES TO FOURIER
+C                    COEFFICIENTS.
+C
+C ON OUTPUT    A
+C               IF ISIGN = +1, AND M COEFFICIENT VECTORS ARE SUPPLIED
+C               EACH CONTAINING THE SEQUENCE:
+C
+C               A(0),B(0),A(1),B(1),...,A(N/2),B(N/2)  (N+2 VALUES)
+C
+C               THEN THE RESULT CONSISTS OF M DATA VECTORS EACH
+C               CONTAINING THE CORRESPONDING N+2 GRIDPOINT VALUES:
+C
+C               FOR FFT991, X(0), X(1), X(2),...,X(N-1),0,0.
+C               FOR FFT99, X(N-1),X(0),X(1),X(2),...,X(N-1),X(0).
+C                   (EXPLICIT CYCLIC CONTINUITY)
+C
+C               WHEN ISIGN = +1, THE TRANSFORM IS DEFINED BY:
+C                 X(J)=SUM(K=0,...,N-1)(C(K)*EXP(2*I*J*K*PI/N))
+C                 WHERE C(K)=A(K)+I*B(K) AND C(N-K)=A(K)-I*B(K)
+C                 AND I=SQRT (-1)
+C
+C               IF ISIGN = -1, AND M DATA VECTORS ARE SUPPLIED EACH
+C               CONTAINING A SEQUENCE OF GRIDPOINT VALUES X(J) AS
+C               DEFINED ABOVE, THEN THE RESULT CONSISTS OF M VECTORS
+C               EACH CONTAINING THE CORRESPONDING FOURIER COFFICIENTS
+C               A(K), B(K), 0 .LE. K .LE N/2.
+C
+C               WHEN ISIGN = -1, THE INVERSE TRANSFORM IS DEFINED BY:
+C                 C(K)=(1/N)*SUM(J=0,...,N-1)(X(J)*EXP(-2*I*J*K*PI/N))
+C                 WHERE C(K)=A(K)+I*B(K) AND I=SQRT(-1)
+C
+C               A CALL WITH ISIGN=+1 FOLLOWED BY A CALL WITH ISIGN=-1
+C               (OR VICE VERSA) RETURNS THE ORIGINAL DATA.
+C
+C               NOTE: THE FACT THAT THE GRIDPOINT VALUES X(J) ARE REAL
+C               IMPLIES THAT B(0)=B(N/2)=0.  FOR A CALL WITH ISIGN=+1,
+C               IT IS NOT ACTUALLY NECESSARY TO SUPPLY THESE ZEROS.
+C
+C EXAMPLES      GIVEN 19 DATA VECTORS EACH OF LENGTH 64 (+2 FOR EXPLICIT
+C               CYCLIC CONTINUITY), COMPUTE THE CORRESPONDING VECTORS OF
+C               FOURIER COEFFICIENTS.  THE DATA MAY, FOR EXAMPLE, BE
+C               ARRANGED LIKE THIS:
+C
+C FIRST DATA   A(1)=    . . .                A(66)=             A(70)
+C VECTOR       X(63) X(0) X(1) X(2) ... X(63) X(0)  (4 EMPTY LOCATIONS)
+C
+C SECOND DATA  A(71)=   . . .                                  A(140)
+C VECTOR       X(63) X(0) X(1) X(2) ... X(63) X(0)  (4 EMPTY LOCATIONS)
+C
+C               AND SO ON.  HERE INC=1, JUMP=70, N=64, M=19, ISIGN=-1,
+C               AND FFT99 SHOULD BE USED (BECAUSE OF THE EXPLICIT CYCLIC
+C               CONTINUITY).
+C
+C               ALTERNATIVELY THE DATA MAY BE ARRANGED LIKE THIS:
+C
+C                FIRST         SECOND                          LAST
+C                DATA          DATA                            DATA
+C                VECTOR        VECTOR                          VECTOR
+C
+C                 A(1)=         A(2)=                           A(19)=
+C
+C                 X(63)         X(63)       . . .               X(63)
+C        A(20)=   X(0)          X(0)        . . .               X(0)
+C        A(39)=   X(1)          X(1)        . . .               X(1)
+C                  .             .                               .
+C                  .             .                               .
+C                  .             .                               .
+C
+C               IN WHICH CASE WE HAVE INC=19, JUMP=1, AND THE REMAINING
+C               PARAMETERS ARE THE SAME AS BEFORE.  IN EITHER CASE, EACH
+C               COEFFICIENT VECTOR OVERWRITES THE CORRESPONDING INPUT
+C               DATA VECTOR.
+C
+C-----------------------------------------------------------------------
+      DIMENSION A(N),WORK(N),TRIGS(N),IFAX(1)
+C
+C     SUBROUTINE "FFT99" - MULTIPLE FAST REAL PERIODIC TRANSFORM
+C     CORRESPONDING TO OLD SCALAR ROUTINE FFT9
+C     PROCEDURE USED TO CONVERT TO HALF-LENGTH COMPLEX TRANSFORM
+C     IS GIVEN BY COOLEY, LEWIS AND WELCH (J. SOUND VIB., VOL. 12
+C     (1970), 315-337)
+C
+C     A IS THE ARRAY CONTAINING INPUT AND OUTPUT DATA
+C     WORK IS AN AREA OF SIZE (N+1)*LOT
+C     TRIGS IS A PREVIOUSLY PREPARED LIST OF TRIG FUNCTION VALUES
+C     IFAX IS A PREVIOUSLY PREPARED LIST OF FACTORS OF N/2
+C     INC IS THE INCREMENT WITHIN EACH DATA 'VECTOR'
+C         (E.G. INC=1 FOR CONSECUTIVELY STORED DATA)
+C     JUMP IS THE INCREMENT BETWEEN THE START OF EACH DATA VECTOR
+C     N IS THE LENGTH OF THE DATA VECTORS
+C     LOT IS THE NUMBER OF DATA VECTORS
+C     ISIGN = +1 FOR TRANSFORM FROM SPECTRAL TO GRIDPOINT
+C           = -1 FOR TRANSFORM FROM GRIDPOINT TO SPECTRAL
+C
+C     ORDERING OF COEFFICIENTS:
+C         A(0),B(0),A(1),B(1),A(2),B(2),...,A(N/2),B(N/2)
+C         WHERE B(0)=B(N/2)=0; (N+2) LOCATIONS REQUIRED
+C
+C     ORDERING OF DATA:
+C         X(N-1),X(0),X(1),X(2),...,X(N),X(0)
+C         I.E. EXPLICIT CYCLIC CONTINUITY; (N+2) LOCATIONS REQUIRED
+C
+C     VECTORIZATION IS ACHIEVED ON CRAY BY DOING THE TRANSFORMS IN
+C     PARALLEL
+C
+C     *** N.B. N IS ASSUMED TO BE AN EVEN NUMBER
+C
+C     DEFINITION OF TRANSFORMS:
+C     -------------------------
+C
+C     ISIGN=+1: X(J)=SUM(K=0,...,N-1)(C(K)*EXP(2*I*J*K*PI/N))
+C         WHERE C(K)=A(K)+I*B(K) AND C(N-K)=A(K)-I*B(K)
+C
+C     ISIGN=-1: A(K)=(1/N)*SUM(J=0,...,N-1)(X(J)*COS(2*J*K*PI/N))
+C               B(K)=-(1/N)*SUM(J=0,...,N-1)(X(J)*SIN(2*J*K*PI/N))
+C
+C
+C
+C
+      NFAX=IFAX(1)
+      NX=N+1
+      NH=N/2
+      INK=INC+INC
+      IF (ISIGN.EQ.+1) GO TO 30
+C
+C     IF NECESSARY, TRANSFER DATA TO WORK AREA
+      IGO=50
+      IF (MOD(NFAX,2).EQ.1) GOTO 40
+      IBASE=INC+1
+      JBASE=1
+      DO 20 L=1,LOT
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 10 M=1,N
+      WORK(J)=A(I)
+      I=I+INC
+      J=J+1
+   10 CONTINUE
+      IBASE=IBASE+JUMP
+      JBASE=JBASE+NX
+   20 CONTINUE
+C
+      IGO=60
+      GO TO 40
+C
+C     PREPROCESSING (ISIGN=+1)
+C     ------------------------
+C
+   30 CONTINUE
+      CALL FFT99A(A,WORK,TRIGS,INC,JUMP,N,LOT)
+      IGO=60
+C
+C     COMPLEX TRANSFORM
+C     -----------------
+C
+   40 CONTINUE
+      IA=INC+1
+      LA=1
+      DO 80 K=1,NFAX
+      IF (IGO.EQ.60) GO TO 60
+   50 CONTINUE
+      CALL VPASSM(A(IA),A(IA+INC),WORK(1),WORK(2),TRIGS,
+     *   INK,2,JUMP,NX,LOT,NH,IFAX(K+1),LA)
+      IGO=60
+      GO TO 70
+   60 CONTINUE
+      CALL VPASSM(WORK(1),WORK(2),A(IA),A(IA+INC),TRIGS,
+     *    2,INK,NX,JUMP,LOT,NH,IFAX(K+1),LA)
+      IGO=50
+   70 CONTINUE
+      LA=LA*IFAX(K+1)
+   80 CONTINUE
+C
+      IF (ISIGN.EQ.-1) GO TO 130
+C
+C     IF NECESSARY, TRANSFER DATA FROM WORK AREA
+      IF (MOD(NFAX,2).EQ.1) GO TO 110
+      IBASE=1
+      JBASE=IA
+      DO 100 L=1,LOT
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 90 M=1,N
+      A(J)=WORK(I)
+      I=I+1
+      J=J+INC
+   90 CONTINUE
+      IBASE=IBASE+NX
+      JBASE=JBASE+JUMP
+  100 CONTINUE
+C
+C     FILL IN CYCLIC BOUNDARY POINTS
+  110 CONTINUE
+      IA=1
+      IB=N*INC+1
+!DIR$ IVDEP
+      DO 120 L=1,LOT
+      A(IA)=A(IB)
+      A(IB+INC)=A(IA+INC)
+      IA=IA+JUMP
+      IB=IB+JUMP
+  120 CONTINUE
+      GO TO 140
+C
+C     POSTPROCESSING (ISIGN=-1):
+C     --------------------------
+C
+  130 CONTINUE
+      CALL FFT99B(WORK,A,TRIGS,INC,JUMP,N,LOT)
+C
+  140 CONTINUE
+      RETURN
+      END
+      SUBROUTINE FFT99A(A,WORK,TRIGS,INC,JUMP,N,LOT)
+      DIMENSION A(N),WORK(N),TRIGS(N)
+C
+C     SUBROUTINE FFT99A - PREPROCESSING STEP FOR FFT99, ISIGN=+1
+C     (SPECTRAL TO GRIDPOINT TRANSFORM)
+C
+      NH=N/2
+      NX=N+1
+      INK=INC+INC
+C
+C     A(0) AND A(N/2)
+      IA=1
+      IB=N*INC+1
+      JA=1
+      JB=2
+!DIR$ IVDEP
+      DO 10 L=1,LOT
+      WORK(JA)=A(IA)+A(IB)
+      WORK(JB)=A(IA)-A(IB)
+      IA=IA+JUMP
+      IB=IB+JUMP
+      JA=JA+NX
+      JB=JB+NX
+   10 CONTINUE
+C
+C     REMAINING WAVENUMBERS
+      IABASE=2*INC+1
+      IBBASE=(N-2)*INC+1
+      JABASE=3
+      JBBASE=N-1
+C
+      DO 30 K=3,NH,2
+      IA=IABASE
+      IB=IBBASE
+      JA=JABASE
+      JB=JBBASE
+      C=TRIGS(N+K)
+      S=TRIGS(N+K+1)
+!DIR$ IVDEP
+      DO 20 L=1,LOT
+      WORK(JA)=(A(IA)+A(IB))-
+     *    (S*(A(IA)-A(IB))+C*(A(IA+INC)+A(IB+INC)))
+      WORK(JB)=(A(IA)+A(IB))+
+     *    (S*(A(IA)-A(IB))+C*(A(IA+INC)+A(IB+INC)))
+      WORK(JA+1)=(C*(A(IA)-A(IB))-S*(A(IA+INC)+A(IB+INC)))+
+     *    (A(IA+INC)-A(IB+INC))
+      WORK(JB+1)=(C*(A(IA)-A(IB))-S*(A(IA+INC)+A(IB+INC)))-
+     *    (A(IA+INC)-A(IB+INC))
+      IA=IA+JUMP
+      IB=IB+JUMP
+      JA=JA+NX
+      JB=JB+NX
+   20 CONTINUE
+      IABASE=IABASE+INK
+      IBBASE=IBBASE-INK
+      JABASE=JABASE+2
+      JBBASE=JBBASE-2
+   30 CONTINUE
+C
+      IF (IABASE.NE.IBBASE) GO TO 50
+C     WAVENUMBER N/4 (IF IT EXISTS)
+      IA=IABASE
+      JA=JABASE
+!DIR$ IVDEP
+      DO 40 L=1,LOT
+      WORK(JA)=2.0*A(IA)
+      WORK(JA+1)=-2.0*A(IA+INC)
+      IA=IA+JUMP
+      JA=JA+NX
+   40 CONTINUE
+C
+   50 CONTINUE
+      RETURN
+      END
+      SUBROUTINE FFT99B(WORK,A,TRIGS,INC,JUMP,N,LOT)
+      DIMENSION WORK(N),A(N),TRIGS(N)
+C
+C     SUBROUTINE FFT99B - POSTPROCESSING STEP FOR FFT99, ISIGN=-1
+C     (GRIDPOINT TO SPECTRAL TRANSFORM)
+C
+      NH=N/2
+      NX=N+1
+      INK=INC+INC
+C
+C     A(0) AND A(N/2)
+      SCALE=1.0/FLOAT(N)
+      IA=1
+      IB=2
+      JA=1
+      JB=N*INC+1
+!DIR$ IVDEP
+      DO 10 L=1,LOT
+      A(JA)=SCALE*(WORK(IA)+WORK(IB))
+      A(JB)=SCALE*(WORK(IA)-WORK(IB))
+      A(JA+INC)=0.0
+      A(JB+INC)=0.0
+      IA=IA+NX
+      IB=IB+NX
+      JA=JA+JUMP
+      JB=JB+JUMP
+   10 CONTINUE
+C
+C     REMAINING WAVENUMBERS
+      SCALE=0.5*SCALE
+      IABASE=3
+      IBBASE=N-1
+      JABASE=2*INC+1
+      JBBASE=(N-2)*INC+1
+C
+      DO 30 K=3,NH,2
+      IA=IABASE
+      IB=IBBASE
+      JA=JABASE
+      JB=JBBASE
+      C=TRIGS(N+K)
+      S=TRIGS(N+K+1)
+!DIR$ IVDEP
+      DO 20 L=1,LOT
+      A(JA)=SCALE*((WORK(IA)+WORK(IB))
+     *   +(C*(WORK(IA+1)+WORK(IB+1))+S*(WORK(IA)-WORK(IB))))
+      A(JB)=SCALE*((WORK(IA)+WORK(IB))
+     *   -(C*(WORK(IA+1)+WORK(IB+1))+S*(WORK(IA)-WORK(IB))))
+      A(JA+INC)=SCALE*((C*(WORK(IA)-WORK(IB))-S*(WORK(IA+1)+WORK(IB+1)))
+     *    +(WORK(IB+1)-WORK(IA+1)))
+      A(JB+INC)=SCALE*((C*(WORK(IA)-WORK(IB))-S*(WORK(IA+1)+WORK(IB+1)))
+     *    -(WORK(IB+1)-WORK(IA+1)))
+      IA=IA+NX
+      IB=IB+NX
+      JA=JA+JUMP
+      JB=JB+JUMP
+   20 CONTINUE
+      IABASE=IABASE+2
+      IBBASE=IBBASE-2
+      JABASE=JABASE+INK
+      JBBASE=JBBASE-INK
+   30 CONTINUE
+C
+      IF (IABASE.NE.IBBASE) GO TO 50
+C     WAVENUMBER N/4 (IF IT EXISTS)
+      IA=IABASE
+      JA=JABASE
+      SCALE=2.0*SCALE
+!DIR$ IVDEP
+      DO 40 L=1,LOT
+      A(JA)=SCALE*WORK(IA)
+      A(JA+INC)=-SCALE*WORK(IA+1)
+      IA=IA+NX
+      JA=JA+JUMP
+   40 CONTINUE
+C
+   50 CONTINUE
+      RETURN
+      END
+      SUBROUTINE FFT991(A,WORK,TRIGS,IFAX,INC,JUMP,N,LOT,ISIGN)
+      DIMENSION A(N),WORK(N),TRIGS(N),IFAX(1)
+C
+C     SUBROUTINE "FFT991" - MULTIPLE REAL/HALF-COMPLEX PERIODIC
+C     FAST FOURIER TRANSFORM
+C
+C     SAME AS FFT99 EXCEPT THAT ORDERING OF DATA CORRESPONDS TO
+C     THAT IN MRFFT2
+C
+C     PROCEDURE USED TO CONVERT TO HALF-LENGTH COMPLEX TRANSFORM
+C     IS GIVEN BY COOLEY, LEWIS AND WELCH (J. SOUND VIB., VOL. 12
+C     (1970), 315-337)
+C
+C     A IS THE ARRAY CONTAINING INPUT AND OUTPUT DATA
+C     WORK IS AN AREA OF SIZE (N+1)*LOT
+C     TRIGS IS A PREVIOUSLY PREPARED LIST OF TRIG FUNCTION VALUES
+C     IFAX IS A PREVIOUSLY PREPARED LIST OF FACTORS OF N/2
+C     INC IS THE INCREMENT WITHIN EACH DATA 'VECTOR'
+C         (E.G. INC=1 FOR CONSECUTIVELY STORED DATA)
+C     JUMP IS THE INCREMENT BETWEEN THE START OF EACH DATA VECTOR
+C     N IS THE LENGTH OF THE DATA VECTORS
+C     LOT IS THE NUMBER OF DATA VECTORS
+C     ISIGN = +1 FOR TRANSFORM FROM SPECTRAL TO GRIDPOINT
+C           = -1 FOR TRANSFORM FROM GRIDPOINT TO SPECTRAL
+C
+C     ORDERING OF COEFFICIENTS:
+C         A(0),B(0),A(1),B(1),A(2),B(2),...,A(N/2),B(N/2)
+C         WHERE B(0)=B(N/2)=0; (N+2) LOCATIONS REQUIRED
+C
+C     ORDERING OF DATA:
+C         X(0),X(1),X(2),...,X(N-1)
+C
+C     VECTORIZATION IS ACHIEVED ON CRAY BY DOING THE TRANSFORMS IN
+C     PARALLEL
+C
+C     *** N.B. N IS ASSUMED TO BE AN EVEN NUMBER
+C
+C     DEFINITION OF TRANSFORMS:
+C     -------------------------
+C
+C     ISIGN=+1: X(J)=SUM(K=0,...,N-1)(C(K)*EXP(2*I*J*K*PI/N))
+C         WHERE C(K)=A(K)+I*B(K) AND C(N-K)=A(K)-I*B(K)
+C
+C     ISIGN=-1: A(K)=(1/N)*SUM(J=0,...,N-1)(X(J)*COS(2*J*K*PI/N))
+C               B(K)=-(1/N)*SUM(J=0,...,N-1)(X(J)*SIN(2*J*K*PI/N))
+C
+C
+C
+      NFAX=IFAX(1)
+      NX=N+1
+      NH=N/2
+      INK=INC+INC
+      IF (ISIGN.EQ.+1) GO TO 30
+C
+C     IF NECESSARY, TRANSFER DATA TO WORK AREA
+      IGO=50
+      IF (MOD(NFAX,2).EQ.1) GOTO 40
+      IBASE=1
+      JBASE=1
+      DO 20 L=1,LOT
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 10 M=1,N
+      WORK(J)=A(I)
+      I=I+INC
+      J=J+1
+   10 CONTINUE
+      IBASE=IBASE+JUMP
+      JBASE=JBASE+NX
+   20 CONTINUE
+C
+      IGO=60
+      GO TO 40
+C
+C     PREPROCESSING (ISIGN=+1)
+C     ------------------------
+C
+   30 CONTINUE
+      CALL FFT99A(A,WORK,TRIGS,INC,JUMP,N,LOT)
+      IGO=60
+C
+C     COMPLEX TRANSFORM
+C     -----------------
+C
+   40 CONTINUE
+      IA=1
+      LA=1
+      DO 80 K=1,NFAX
+      IF (IGO.EQ.60) GO TO 60
+   50 CONTINUE
+      CALL VPASSM(A(IA),A(IA+INC),WORK(1),WORK(2),TRIGS,
+     *   INK,2,JUMP,NX,LOT,NH,IFAX(K+1),LA)
+      IGO=60
+      GO TO 70
+   60 CONTINUE
+      CALL VPASSM(WORK(1),WORK(2),A(IA),A(IA+INC),TRIGS,
+     *    2,INK,NX,JUMP,LOT,NH,IFAX(K+1),LA)
+      IGO=50
+   70 CONTINUE
+      LA=LA*IFAX(K+1)
+   80 CONTINUE
+C
+      IF (ISIGN.EQ.-1) GO TO 130
+C
+C     IF NECESSARY, TRANSFER DATA FROM WORK AREA
+      IF (MOD(NFAX,2).EQ.1) GO TO 110
+      IBASE=1
+      JBASE=1
+      DO 100 L=1,LOT
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 90 M=1,N
+      A(J)=WORK(I)
+      I=I+1
+      J=J+INC
+   90 CONTINUE
+      IBASE=IBASE+NX
+      JBASE=JBASE+JUMP
+  100 CONTINUE
+C
+C     FILL IN ZEROS AT END
+  110 CONTINUE
+      IB=N*INC+1
+!DIR$ IVDEP
+      DO 120 L=1,LOT
+      A(IB)=0.0
+      A(IB+INC)=0.0
+      IB=IB+JUMP
+  120 CONTINUE
+      GO TO 140
+C
+C     POSTPROCESSING (ISIGN=-1):
+C     --------------------------
+C
+  130 CONTINUE
+      CALL FFT99B(WORK,A,TRIGS,INC,JUMP,N,LOT)
+C
+  140 CONTINUE
+      RETURN
+      END
+      SUBROUTINE SET99 (TRIGS, IFAX, N)
+      DIMENSION IFAX(13),TRIGS(1)
+C
+C MODE 3 IS USED FOR REAL/HALF-COMPLEX TRANSFORMS.  IT IS POSSIBLE
+C TO DO COMPLEX/COMPLEX TRANSFORMS WITH OTHER VALUES OF MODE, BUT
+C DOCUMENTATION OF THE DETAILS WERE NOT AVAILABLE WHEN THIS ROUTINE
+C WAS WRITTEN.
+C
+      DATA MODE /3/
+      CALL FAX (IFAX, N, MODE)
+      I = IFAX(1)
+      IF (IFAX(I+1) .GT. 5 .OR. N .LE. 4) IFAX(1) = -99
+      IF (IFAX(1) .LE. 0 ) THEN
+        WRITE(6,*) ' SET99 -- INVALID N'
+        CALL ENDRUN (-1)
+      ENDIF
+      CALL FFTRIG (TRIGS, N, MODE)
+      RETURN
+      END
+      SUBROUTINE FAX(IFAX,N,MODE)
+      DIMENSION IFAX(10)
+      NN=N
+      IF (IABS(MODE).EQ.1) GO TO 10
+      IF (IABS(MODE).EQ.8) GO TO 10
+      NN=N/2
+      IF ((NN+NN).EQ.N) GO TO 10
+      IFAX(1)=-99
+      RETURN
+   10 K=1
+C     TEST FOR FACTORS OF 4
+   20 IF (MOD(NN,4).NE.0) GO TO 30
+      K=K+1
+      IFAX(K)=4
+      NN=NN/4
+      IF (NN.EQ.1) GO TO 80
+      GO TO 20
+C     TEST FOR EXTRA FACTOR OF 2
+   30 IF (MOD(NN,2).NE.0) GO TO 40
+      K=K+1
+      IFAX(K)=2
+      NN=NN/2
+      IF (NN.EQ.1) GO TO 80
+C     TEST FOR FACTORS OF 3
+   40 IF (MOD(NN,3).NE.0) GO TO 50
+      K=K+1
+      IFAX(K)=3
+      NN=NN/3
+      IF (NN.EQ.1) GO TO 80
+      GO TO 40
+C     NOW FIND REMAINING FACTORS
+   50 L=5
+      INC=2
+C     INC ALTERNATELY TAKES ON VALUES 2 AND 4
+   60 IF (MOD(NN,L).NE.0) GO TO 70
+      K=K+1
+      IFAX(K)=L
+      NN=NN/L
+      IF (NN.EQ.1) GO TO 80
+      GO TO 60
+   70 L=L+INC
+      INC=6-INC
+      GO TO 60
+   80 IFAX(1)=K-1
+C     IFAX(1) CONTAINS NUMBER OF FACTORS
+      NFAX=IFAX(1)
+C     SORT FACTORS INTO ASCENDING ORDER
+      IF (NFAX.EQ.1) GO TO 110
+      DO 100 II=2,NFAX
+      ISTOP=NFAX+2-II
+      DO 90 I=2,ISTOP
+      IF (IFAX(I+1).GE.IFAX(I)) GO TO 90
+      ITEM=IFAX(I)
+      IFAX(I)=IFAX(I+1)
+      IFAX(I+1)=ITEM
+   90 CONTINUE
+  100 CONTINUE
+  110 CONTINUE
+      RETURN
+      END
+      SUBROUTINE FFTRIG(TRIGS,N,MODE)
+      DIMENSION TRIGS(1)
+      PI=2.0*ASIN(1.0)
+      IMODE=IABS(MODE)
+      NN=N
+      IF (IMODE.GT.1.AND.IMODE.LT.6) NN=N/2
+      DEL=(PI+PI)/FLOAT(NN)
+      L=NN+NN
+      DO 10 I=1,L,2
+      ANGLE=0.5*FLOAT(I-1)*DEL
+      TRIGS(I)=COS(ANGLE)
+      TRIGS(I+1)=SIN(ANGLE)
+   10 CONTINUE
+      IF (IMODE.EQ.1) RETURN
+      IF (IMODE.EQ.8) RETURN
+      DEL=0.5*DEL
+      NH=(NN+1)/2
+      L=NH+NH
+      LA=NN+NN
+      DO 20 I=1,L,2
+      ANGLE=0.5*FLOAT(I-1)*DEL
+      TRIGS(LA+I)=COS(ANGLE)
+      TRIGS(LA+I+1)=SIN(ANGLE)
+   20 CONTINUE
+      IF (IMODE.LE.3) RETURN
+      DEL=0.5*DEL
+      LA=LA+NN
+      IF (MODE.EQ.5) GO TO 40
+      DO 30 I=2,NN
+      ANGLE=FLOAT(I-1)*DEL
+      TRIGS(LA+I)=2.0*SIN(ANGLE)
+   30 CONTINUE
+      RETURN
+   40 CONTINUE
+      DEL=0.5*DEL
+      DO 50 I=2,N
+      ANGLE=FLOAT(I-1)*DEL
+      TRIGS(LA+I)=SIN(ANGLE)
+   50 CONTINUE
+      RETURN
+      END
+      SUBROUTINE VPASSM(A,B,C,D,TRIGS,INC1,INC2,INC3,INC4,LOT,N,IFAC,LA)
+      DIMENSION A(N),B(N),C(N),D(N),TRIGS(N)
+C
+C     SUBROUTINE "VPASSM" - MULTIPLE VERSION OF "VPASSA"
+C     PERFORMS ONE PASS THROUGH DATA
+C     AS PART OF MULTIPLE COMPLEX FFT ROUTINE
+C     A IS FIRST REAL INPUT VECTOR
+C     B IS FIRST IMAGINARY INPUT VECTOR
+C     C IS FIRST REAL OUTPUT VECTOR
+C     D IS FIRST IMAGINARY OUTPUT VECTOR
+C     TRIGS IS PRECALCULATED TABLE OF SINES " COSINES
+C     INC1 IS ADDRESSING INCREMENT FOR A AND B
+C     INC2 IS ADDRESSING INCREMENT FOR C AND D
+C     INC3 IS ADDRESSING INCREMENT BETWEEN A"S & B"S
+C     INC4 IS ADDRESSING INCREMENT BETWEEN C"S & D"S
+C     LOT IS THE NUMBER OF VECTORS
+C     N IS LENGTH OF VECTORS
+C     IFAC IS CURRENT FACTOR OF N
+C     LA IS PRODUCT OF PREVIOUS FACTORS
+C
+      DATA SIN36/0.587785252292473/,COS36/0.809016994374947/,
+     *     SIN72/0.951056516295154/,COS72/0.309016994374947/,
+     *     SIN60/0.866025403784437/
+C
+      M=N/IFAC
+      IINK=M*INC1
+      JINK=LA*INC2
+      JUMP=(IFAC-1)*JINK
+      IBASE=0
+      JBASE=0
+      IGO=IFAC-1
+      IF (IGO.GT.4) RETURN
+      GO TO (10,50,90,130),IGO
+C
+C     CODING FOR FACTOR 2
+C
+   10 IA=1
+      JA=1
+      IB=IA+IINK
+      JB=JA+JINK
+      DO 20 L=1,LA
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 15 IJK=1,LOT
+      C(JA+J)=A(IA+I)+A(IB+I)
+      D(JA+J)=B(IA+I)+B(IB+I)
+      C(JB+J)=A(IA+I)-A(IB+I)
+      D(JB+J)=B(IA+I)-B(IB+I)
+      I=I+INC3
+      J=J+INC4
+   15 CONTINUE
+      IBASE=IBASE+INC1
+      JBASE=JBASE+INC2
+   20 CONTINUE
+      IF (LA.EQ.M) RETURN
+      LA1=LA+1
+      JBASE=JBASE+JUMP
+      DO 40 K=LA1,M,LA
+      KB=K+K-2
+      C1=TRIGS(KB+1)
+      S1=TRIGS(KB+2)
+      DO 30 L=1,LA
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 25 IJK=1,LOT
+      C(JA+J)=A(IA+I)+A(IB+I)
+      D(JA+J)=B(IA+I)+B(IB+I)
+      C(JB+J)=C1*(A(IA+I)-A(IB+I))-S1*(B(IA+I)-B(IB+I))
+      D(JB+J)=S1*(A(IA+I)-A(IB+I))+C1*(B(IA+I)-B(IB+I))
+      I=I+INC3
+      J=J+INC4
+   25 CONTINUE
+      IBASE=IBASE+INC1
+      JBASE=JBASE+INC2
+   30 CONTINUE
+      JBASE=JBASE+JUMP
+   40 CONTINUE
+      RETURN
+C
+C     CODING FOR FACTOR 3
+C
+   50 IA=1
+      JA=1
+      IB=IA+IINK
+      JB=JA+JINK
+      IC=IB+IINK
+      JC=JB+JINK
+      DO 60 L=1,LA
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 55 IJK=1,LOT
+      C(JA+J)=A(IA+I)+(A(IB+I)+A(IC+I))
+      D(JA+J)=B(IA+I)+(B(IB+I)+B(IC+I))
+      C(JB+J)=(A(IA+I)-0.5*(A(IB+I)+A(IC+I)))-(SIN60*(B(IB+I)-B(IC+I)))
+      C(JC+J)=(A(IA+I)-0.5*(A(IB+I)+A(IC+I)))+(SIN60*(B(IB+I)-B(IC+I)))
+      D(JB+J)=(B(IA+I)-0.5*(B(IB+I)+B(IC+I)))+(SIN60*(A(IB+I)-A(IC+I)))
+      D(JC+J)=(B(IA+I)-0.5*(B(IB+I)+B(IC+I)))-(SIN60*(A(IB+I)-A(IC+I)))
+      I=I+INC3
+      J=J+INC4
+   55 CONTINUE
+      IBASE=IBASE+INC1
+      JBASE=JBASE+INC2
+   60 CONTINUE
+      IF (LA.EQ.M) RETURN
+      LA1=LA+1
+      JBASE=JBASE+JUMP
+      DO 80 K=LA1,M,LA
+      KB=K+K-2
+      KC=KB+KB
+      C1=TRIGS(KB+1)
+      S1=TRIGS(KB+2)
+      C2=TRIGS(KC+1)
+      S2=TRIGS(KC+2)
+      DO 70 L=1,LA
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 65 IJK=1,LOT
+      C(JA+J)=A(IA+I)+(A(IB+I)+A(IC+I))
+      D(JA+J)=B(IA+I)+(B(IB+I)+B(IC+I))
+      C(JB+J)=
+     *    C1*((A(IA+I)-0.5*(A(IB+I)+A(IC+I)))-(SIN60*(B(IB+I)-B(IC+I))))
+     *   -S1*((B(IA+I)-0.5*(B(IB+I)+B(IC+I)))+(SIN60*(A(IB+I)-A(IC+I))))
+      D(JB+J)=
+     *    S1*((A(IA+I)-0.5*(A(IB+I)+A(IC+I)))-(SIN60*(B(IB+I)-B(IC+I))))
+     *   +C1*((B(IA+I)-0.5*(B(IB+I)+B(IC+I)))+(SIN60*(A(IB+I)-A(IC+I))))
+      C(JC+J)=
+     *    C2*((A(IA+I)-0.5*(A(IB+I)+A(IC+I)))+(SIN60*(B(IB+I)-B(IC+I))))
+     *   -S2*((B(IA+I)-0.5*(B(IB+I)+B(IC+I)))-(SIN60*(A(IB+I)-A(IC+I))))
+      D(JC+J)=
+     *    S2*((A(IA+I)-0.5*(A(IB+I)+A(IC+I)))+(SIN60*(B(IB+I)-B(IC+I))))
+     *   +C2*((B(IA+I)-0.5*(B(IB+I)+B(IC+I)))-(SIN60*(A(IB+I)-A(IC+I))))
+      I=I+INC3
+      J=J+INC4
+   65 CONTINUE
+      IBASE=IBASE+INC1
+      JBASE=JBASE+INC2
+   70 CONTINUE
+      JBASE=JBASE+JUMP
+   80 CONTINUE
+      RETURN
+C
+C     CODING FOR FACTOR 4
+C
+   90 IA=1
+      JA=1
+      IB=IA+IINK
+      JB=JA+JINK
+      IC=IB+IINK
+      JC=JB+JINK
+      ID=IC+IINK
+      JD=JC+JINK
+      DO 100 L=1,LA
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 95 IJK=1,LOT
+      C(JA+J)=(A(IA+I)+A(IC+I))+(A(IB+I)+A(ID+I))
+      C(JC+J)=(A(IA+I)+A(IC+I))-(A(IB+I)+A(ID+I))
+      D(JA+J)=(B(IA+I)+B(IC+I))+(B(IB+I)+B(ID+I))
+      D(JC+J)=(B(IA+I)+B(IC+I))-(B(IB+I)+B(ID+I))
+      C(JB+J)=(A(IA+I)-A(IC+I))-(B(IB+I)-B(ID+I))
+      C(JD+J)=(A(IA+I)-A(IC+I))+(B(IB+I)-B(ID+I))
+      D(JB+J)=(B(IA+I)-B(IC+I))+(A(IB+I)-A(ID+I))
+      D(JD+J)=(B(IA+I)-B(IC+I))-(A(IB+I)-A(ID+I))
+      I=I+INC3
+      J=J+INC4
+   95 CONTINUE
+      IBASE=IBASE+INC1
+      JBASE=JBASE+INC2
+  100 CONTINUE
+      IF (LA.EQ.M) RETURN
+      LA1=LA+1
+      JBASE=JBASE+JUMP
+      DO 120 K=LA1,M,LA
+      KB=K+K-2
+      KC=KB+KB
+      KD=KC+KB
+      C1=TRIGS(KB+1)
+      S1=TRIGS(KB+2)
+      C2=TRIGS(KC+1)
+      S2=TRIGS(KC+2)
+      C3=TRIGS(KD+1)
+      S3=TRIGS(KD+2)
+      DO 110 L=1,LA
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 105 IJK=1,LOT
+      C(JA+J)=(A(IA+I)+A(IC+I))+(A(IB+I)+A(ID+I))
+      D(JA+J)=(B(IA+I)+B(IC+I))+(B(IB+I)+B(ID+I))
+      C(JC+J)=
+     *    C2*((A(IA+I)+A(IC+I))-(A(IB+I)+A(ID+I)))
+     *   -S2*((B(IA+I)+B(IC+I))-(B(IB+I)+B(ID+I)))
+      D(JC+J)=
+     *    S2*((A(IA+I)+A(IC+I))-(A(IB+I)+A(ID+I)))
+     *   +C2*((B(IA+I)+B(IC+I))-(B(IB+I)+B(ID+I)))
+      C(JB+J)=
+     *    C1*((A(IA+I)-A(IC+I))-(B(IB+I)-B(ID+I)))
+     *   -S1*((B(IA+I)-B(IC+I))+(A(IB+I)-A(ID+I)))
+      D(JB+J)=
+     *    S1*((A(IA+I)-A(IC+I))-(B(IB+I)-B(ID+I)))
+     *   +C1*((B(IA+I)-B(IC+I))+(A(IB+I)-A(ID+I)))
+      C(JD+J)=
+     *    C3*((A(IA+I)-A(IC+I))+(B(IB+I)-B(ID+I)))
+     *   -S3*((B(IA+I)-B(IC+I))-(A(IB+I)-A(ID+I)))
+      D(JD+J)=
+     *    S3*((A(IA+I)-A(IC+I))+(B(IB+I)-B(ID+I)))
+     *   +C3*((B(IA+I)-B(IC+I))-(A(IB+I)-A(ID+I)))
+      I=I+INC3
+      J=J+INC4
+  105 CONTINUE
+      IBASE=IBASE+INC1
+      JBASE=JBASE+INC2
+  110 CONTINUE
+      JBASE=JBASE+JUMP
+  120 CONTINUE
+      RETURN
+C
+C     CODING FOR FACTOR 5
+C
+  130 IA=1
+      JA=1
+      IB=IA+IINK
+      JB=JA+JINK
+      IC=IB+IINK
+      JC=JB+JINK
+      ID=IC+IINK
+      JD=JC+JINK
+      IE=ID+IINK
+      JE=JD+JINK
+      DO 140 L=1,LA
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 135 IJK=1,LOT
+      C(JA+J)=A(IA+I)+(A(IB+I)+A(IE+I))+(A(IC+I)+A(ID+I))
+      D(JA+J)=B(IA+I)+(B(IB+I)+B(IE+I))+(B(IC+I)+B(ID+I))
+      C(JB+J)=(A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))
+     *  -(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I)))
+      C(JE+J)=(A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))
+     *  +(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I)))
+      D(JB+J)=(B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))
+     *  +(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I)))
+      D(JE+J)=(B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))
+     *  -(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I)))
+      C(JC+J)=(A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))
+     *  -(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I)))
+      C(JD+J)=(A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))
+     *  +(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I)))
+      D(JC+J)=(B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))
+     *  +(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I)))
+      D(JD+J)=(B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))
+     *  -(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I)))
+      I=I+INC3
+      J=J+INC4
+  135 CONTINUE
+      IBASE=IBASE+INC1
+      JBASE=JBASE+INC2
+  140 CONTINUE
+      IF (LA.EQ.M) RETURN
+      LA1=LA+1
+      JBASE=JBASE+JUMP
+      DO 160 K=LA1,M,LA
+      KB=K+K-2
+      KC=KB+KB
+      KD=KC+KB
+      KE=KD+KB
+      C1=TRIGS(KB+1)
+      S1=TRIGS(KB+2)
+      C2=TRIGS(KC+1)
+      S2=TRIGS(KC+2)
+      C3=TRIGS(KD+1)
+      S3=TRIGS(KD+2)
+      C4=TRIGS(KE+1)
+      S4=TRIGS(KE+2)
+      DO 150 L=1,LA
+      I=IBASE
+      J=JBASE
+!DIR$ IVDEP
+      DO 145 IJK=1,LOT
+      C(JA+J)=A(IA+I)+(A(IB+I)+A(IE+I))+(A(IC+I)+A(ID+I))
+      D(JA+J)=B(IA+I)+(B(IB+I)+B(IE+I))+(B(IC+I)+B(ID+I))
+      C(JB+J)=
+     *    C1*((A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))
+     *      -(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I))))
+     *   -S1*((B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))
+     *      +(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I))))
+      D(JB+J)=
+     *    S1*((A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))
+     *      -(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I))))
+     *   +C1*((B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))
+     *      +(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I))))
+      C(JE+J)=
+     *    C4*((A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))
+     *      +(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I))))
+     *   -S4*((B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))
+     *      -(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I))))
+      D(JE+J)=
+     *    S4*((A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))
+     *      +(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I))))
+     *   +C4*((B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))
+     *      -(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I))))
+      C(JC+J)=
+     *    C2*((A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))
+     *      -(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I))))
+     *   -S2*((B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))
+     *      +(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I))))
+      D(JC+J)=
+     *    S2*((A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))
+     *      -(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I))))
+     *   +C2*((B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))
+     *      +(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I))))
+      C(JD+J)=
+     *    C3*((A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))
+     *      +(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I))))
+     *   -S3*((B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))
+     *      -(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I))))
+      D(JD+J)=
+     *    S3*((A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))
+     *      +(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I))))
+     *   +C3*((B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))
+     *      -(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I))))
+      I=I+INC3
+      J=J+INC4
+  145 CONTINUE
+      IBASE=IBASE+INC1
+      JBASE=JBASE+INC2
+  150 CONTINUE
+      JBASE=JBASE+JUMP
+  160 CONTINUE
+      RETURN
+      END
+C
+C-----
+#endif
+C-----
+C
+C *************************END OF FFT99 ROUTINES************************
+C

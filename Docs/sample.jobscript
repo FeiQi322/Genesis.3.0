@@ -1,0 +1,168 @@
+        Figure 1:  Example of Unix C-Shell Script Used to Run the Model
+        ===============================================================
+
+#!/bin/csh -fx
+# QSUB -q econ  -lt 40000  -lT 40000  -lm 10.0Mw  -lM 10.0Mw  -lQ 10.0Mw
+# QSUB -s /bin/csh -eo
+# QSUB
+
+#---------------
+
+# Set restart (1), initial start (0) or cold start (-1)
+set nsrest = 1
+
+# Set vegetation type (0=Dorman-Sellers, 1=Wisconsin, 2=Eve/Leaf)
+set vegtype = 2
+
+#Set permanent output storage directory (including trailing slash)
+set mspath = '/<mss directory>/   # appropriate for NCAR crays
+set mspath = './'                 # appropriate for sgi machines
+
+#---------------
+
+# Choose horizontal resolutions for AGCM and surface (used later in
+# getting data input files and in invoking the executable file)
+
+set resa = 'T31'       # AGCM    resolution (R15, T31, T42)
+set ress = '2X2'       # Surface resolution (R15, T31, T42, 2X2)
+
+#---------------
+
+# set machine type (cray or sgi)
+
+set machine = 'cray'
+
+#---------------
+
+# Various setup operations
+
+if ($machine == 'cray') then
+  set STOREXE  = <directory containing GENESIS executable file> 
+  set STOREDAT = <directory containing GENESIS data input files>
+  set EVEIN    = <directory containing Jan 1st EVE vegetation data/restart file>
+  set RUN      = $TMPDIR  # working directory
+
+else if ($machine == 'sgi') then
+  set STOREXE  = ...
+  set STOREDAT = ...
+  set EVEIN    = ...
+  set RUN      = $cwd
+endif
+
+set RCP = <your local rcp directory>
+setenv FILENV .assigngen
+
+cd $RUN
+if ($machine == 'cray') echo "$RUN" >! ~/tmpgen
+
+#---------------
+
+# Set up subdirectories and data/restart file for Eve/Leaf vegetation
+
+if ($vegtype == 2) then
+  if (! -e rf) mkdir rf
+  if (! -e rf/leaf_restart_file) then
+    if ($nsrest == 1) then
+      # Recover previously saved leaf_restart_file:
+      if ($machine == 'cray') \
+        msread rf/leaf_restart_file ${mspath}leaf_restart_file
+      else
+        cp -p ${mspath}leaf_restart_file rf/leaf_restart_file
+      endif
+    else
+      # For initial or cold start, BASEDATE must be January 1st:
+      cp -p $EVEIN/rf/leaf_001_${ress} rf/leaf_restart_file
+    endif
+  endif
+endif
+ 
+#---------------
+
+# Generate local file "interm" to be read by the model.
+# <NAMELIST> denotes a block of Namelist user-settable options such as in Fig.2.
+
+cat >! interm << endinterm
+<NAMELIST>
+endinterm
+
+#---------------
+
+# Copy data input files from storage to the local directory
+
+chmod u+w TOPOG* OZONE GWD SURFTYP SOIT* DSBIOME WISCVEG FWATER SSTICE OCEAN
+
+ cp $STOREDAT/data_top_$resa    ./TOPOG        # agcm topography 
+ cp $STOREDAT/data_ozone_$resa  ./OZONE        # agcm ozone amount
+ cp $STOREDAT/data_gwd_$resa    ./GWD          # agcm gravity wave drag orog.
+ cp $STOREDAT/data_sur_$ress    ./SURFTYP      # land/icesheet/ocn surface type 
+ cp $STOREDAT/data_soit01_$ress ./SOIT01       # soil texture, layer 1
+ cp $STOREDAT/data_soit02_$ress ./SOIT02       # soil texture, layer 2
+ cp $STOREDAT/data_soit03_$ress ./SOIT03       # soil texture, layer 3
+ cp $STOREDAT/data_soit04_$ress ./SOIT04       # soil texture, layer 4
+ cp $STOREDAT/data_soit05_$ress ./SOIT05       # soil texture, layer 5
+ cp $STOREDAT/data_soit06_$ress ./SOIT06       # soil texture, layer 6
+ cp $STOREDAT/data_biome_$ress  ./DSBIOME      # Dorman+Sellers veg. biomes
+ cp $STOREDAT/data_wisc_$ress  ./WISCVEG       # U.Wisc. veg. categories  
+ cp $STOREDAT/data_fwater_$ress ./FWATER       # open-water fraction
+ cp $STOREDAT/data_sst_$ress    ./SSTICE       # prescribed ocean sst, seaice 
+ cp $STOREDAT/data_ouv_$ress    ./OCEAN        # prescribed ocean currents
+ cp $STOREDAT/data_top_$ress    ./TOPOG2       # surface-grid topography
+
+#---------------
+
+# Clean up prior to running the model
+
+rm -f .assigngen .jagen fort.6 fort.5[0-5] fort.6[0-5] fort.70
+touch fort.6
+
+#---------------
+
+# If on SGI, strip echo flag "E" and comments ";..." from Namelist 
+# input (otherwise fatal error), and prepend to standard output file fort.6.
+# If on CRAY, set up for job accounting information (ja).
+
+if ($machine == 'sgi') then
+  sed  -e 's/^E/\ /g'  -e 's/;.*//g'  interm >! interma
+  mv interma interm
+  echo '=============='   >> fort.6
+  echo 'Namelist Input'   >> fort.6
+  echo '==============\n' >> fort.6
+  cat interm >> fort.6
+  echo '\n====================='   >> fort.6
+  echo   'End of Namelist Input'   >> fort.6
+  echo   '=====================\n' >> fort.6
+else
+  ja .jagen
+endif
+
+#---------------
+
+# Set maximum number of processors for multiprocessing
+
+if ($machine == 'cray') then
+  setenv NCPUS 1
+else if ($machine == 'sgi') then
+  setenv MP_SET_NUMTHREADS 1
+endif
+
+# Run the GENESIS model, sending standard output to local file fort.6
+
+($STOREXE/genexe_${resa}_${ress} < interm) >>& fort.6
+
+#---------------
+
+# If on CRAY, append job accounting information to standard output file
+
+if ($machine != 'sgi') ja -s -cdh -n genexe .jagen >> fort.6
+
+#---------------
+
+# Transfer standard output file and some other text output files to
+# a permanent location (will disappear if running in $TMPDIR directory on CRAY).
+
+rcp fort.6  $RCP/fort.6_sav
+rcp fort.50 $RCP/fort.50_sav
+rcp fort.53 $RCP/fort.53_sav
+rcp fort.55 $RCP/fort.55_sav
+
+exit (0)

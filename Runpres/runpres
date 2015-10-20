@@ -1,0 +1,66 @@
+#!/bin/csh -fx
+
+#----------------
+
+set exp = pres 
+set EXP = `echo $exp | tr "[a-z]" "[A-Z]"`
+
+#----------------
+
+set host = `hostname`
+
+echo "host = $host"
+
+
+set RUN = /gpfs/home/rfr5151/Genesis.3.0/Run${exp}
+
+cd $RUN
+
+#----------------
+
+# Set base year, last year
+
+@ year_base = 2000
+@ year_last = 2050
+
+# Set current year (create or read existing year_file)
+
+if (! -e $RUN/year_file_$exp) then
+  @ year = $year_base
+  echo $year >! $RUN/year_file_$exp
+else
+  @ year = `cat $RUN/year_file_$exp`
+endif
+
+#----------------
+
+# Loop over years 
+
+while ($year <= $year_last)
+
+  # Run Genesis
+
+  $RUN/deb$exp $year_base $year        # run for one year to 24:00 12/31
+  if ($status != 0) exit($status)
+
+  # Increment current year, save to stub file 
+
+  @ year = `cat $RUN/year_file_$exp`
+  @ year = $year + 1
+  echo $year >! $RUN/year_file_$exp
+
+end
+
+exit(0)
+
+
+
+
+
+
+
+
+
+
+
+

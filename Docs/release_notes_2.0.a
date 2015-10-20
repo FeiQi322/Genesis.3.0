@@ -1,0 +1,165 @@
+================================================================================
+GENESIS version 2.0.a Release Notes.                                    10/26/95
+================================================================================
+
+A new GENESIS version 2.0.a is now available to the GENESIS user community.
+These notes describe the executable file names and the changes in the new
+version.
+
+Executable Files
+================
+
+CRAY-executable files and data input files are available by anonymous ftp as
+described in the GENESIS User's Guide. The CRAY-executable files are in
+subdirectory Binary with names:
+
+                          "size"      approx. total
+                         (Mwords)      job memory
+                         --------     -------------
+  genexe_R15_R15_ssd        4.0            5.5 
+  genexe_R15_R15_mem        5.6            7.1
+
+  genexe_T31_T31_ssd        8.0            9.5
+  genexe_T31_T31_mem       11.7           13.2
+
+  genexe_T31_2X2_ssd       10.9           12.4
+  genexe_T31_2X2_mem       15.2           16.7
+
+  genexe_T42_2X2_ssd       14.9           16.4
+  genexe_T42_2X2_mem       21.9           23.4
+
+The first and second suffices denote the AGCM and surface-model horizontal
+resolutions respectively. The third suffix (ssd or mem) denotes how several 
+large temporary buffers are handled: "ssd" uses the CRAY SSD, and "mem" uses
+internal memory. If an SSD is available it is advisable to use it, since "mem"
+adds several Megawords to the required job memory. To use SSD add the line
+"# QSUB -lQ 10.0Mw" to the header lines of your QSUB job script.
+
+The second column above shows the Megawords from the Cray "size" command,
+You should add about 1.5 Megawords to these values for the total job memory
+requested in your QSUB header lines (third column). If multiprocessing is used,
+additional memory is needed for extra stack space as described below.
+(Note that regular and economy jobs on shavano requiring more than 10 Mwords 
+only run at night and on weekends).
+
+We recommend that you use the new version 2.0.a for any new experiments, and
+not the earlier version 2.0 released at the workshop. However for work already
+begun with version 2.0, the old executables are still available on the
+NCAR Mass Store in directory /POLLARD/GENESIS_2.0/.
+
+
+Changes in the New Version
+==========================
+
+The changes from GENESIS version 2.0 to 2.0.a are:
+
+  * Parallel-processing cabability
+  * Some new history fields
+  * Completed Eve/Leaf interface
+  * A new Wisconsin-vegetation data input file
+  * Modified elevation correction (DELEVTYPE) and icesheet-surface albedo
+  * Minor bug fixes  
+
+Parallel-Processing Capability
+------------------------------
+
+The version 2.0.a code can run simultaneously on multiple processors. This has
+been done using autotasking directives (CMIC$ DO ALL for Cray, doacross for SGI)
+over selected high-level loops, mostly over latitude. Roughly 85% of the code
+is parallelized.
+
+The maximum number of processors that the system allocates for a multiprocessed
+job can be set by the user, by adding the line
+
+  setenv NCPUS <n>                 (for Cray machines), or
+  setenv MP_SET_NUMTHREADS <n>     (for SGI  machines)
+
+to your GENESIS jobscript anywhere before the Genesis executable file is run.
+<n> is the maximum number of processors. To turn off multiprocessing, set
+<n> to 1.
+
+With <n> = 1, the required job memory is minimized. With additional
+processors, some of the parallel code regions need significantly more stack
+space, and for <n> = 4, say, the total memory requirement increases by about
+2 Mwords for T31_T31 and by about 3 Mwords for T31_2X2.
+
+
+New History Fields
+------------------
+
+     H2OSOIL  = total liquid+ice in the entire soil column (m of liq. equiv.)
+     PORESOIL = total pore space in the entire soil column (m)
+     H2O30    = total liquid+ice in the top 30 cm of the soil column (m)
+     PORE30   = total pore space in the top 30 cm of the soil column (m)
+
+     POROS[1-6]=single-level fields for the soil porosity in each layer
+
+     WETALL  = 6-level field  for the liquid soil moisture relative to air space
+               in the 6 soil layers (equivalent to WET[1-6]) (0-1)
+     WICEALL = 6-level field for the soil ice relative to pore space
+               in the 6 soil layers (equivalent to WICE[1-6]) (0-1)
+     POROSALL= 6-level field for the soil porosity
+               in the 6 soil layers (equivalent to POROS[1-6]) (0-1)
+
+     TOCEAN  = slab ocean  mixed-layer temperature (or prescribed SSTs) (deg K)
+     HFLXOCN = net downward heat flux into ocean surface (below sea ice) (W/m2)
+     PMEOCN  = net precip minus evap into ocean surface (below sea ice) (m/s)
+
+
+Completed Eve/Leaf Interface
+-----------------------------
+
+The Eve/Leaf vegetation prescription method (VEGTYPE = 2) can now be used
+as described in the the User's Guide (pgs. 23 and 34). A "leaf_restart_file"
+needs to be provided in the local subdirectory "rf" before running the model,
+copied from the "leaf_001..." files in the ftp subdirectory "Eve". Remember
+that this file has a date associated with it (since the seasonal variation of
+leaf area index is computed as the model runs), and the date of the initial
+leaf_restart_file must correspond with the start date of the run (January 1st).
+Thereafter, the program writes a current "leaf_restart_file" at each
+"NSAVE" time to the permanent file storage area (MSS for Crays), which the user
+can access for subsequent restarts at other months. See pg. 35 of the User's
+Guide for further details, and the new sample.jobscript in the ftp area
+for a way of automating the setup.
+
+The Eve/Leaf option is still only available on Cray machines; it will be
+ported to SGI machines shortly.
+
+
+New Wisconsin-vegetation data input file
+----------------------------------------
+
+Jon Foley's group have supplied a slightly revised Wisconsin vegetation map
+(with the lower canopies of forests and woodlands changed from C4 to C3 type).
+The appropriate data input files in the ftp subdirectory "Inputfiles" have been
+replaced.
+
+
+Modified elevation correction (DELEVTYPE) and icesheet-surface albedo
+---------------------------------------------------------------------
+
+The method for correcting surface forcing fields for the difference in elevation
+between spectral and true topography has been improved (used if DELEVTYPE > 0;
+see User's Guide, pg. 18).  The surface pressure is now also corrected, which
+significantly affects the surface sensible and latent heat fluxes.
+We have also reduced the albedos (visible, near-ir) of melting bare ice on land
+ice from (0.85, 0.65) to (0.7, 0.5). The latter values are in closer accord with
+observations. The main effect of these changes is on the net mass balance of
+the Greenland and Antarctic icesheets, and the effects elsewhere are very minor.
+
+
+Minor bug fixes
+---------------
+
+Three minor bugs have been found in version 2.0 and corrected in version 2.0.a:
+
+(i)   The history fields CONVLWC and STRALWC (3-D cloud liquid water contents)
+      were not being saved correctly.
+(ii)  A minor error in the convective cloud overlap algorithm was found; it
+      only occurred in rare situations and had negligible effect on the climate.
+(iii) A typo was corrected that prevented version 2.0 from reading very old
+      restart files. It did not concern restart files made by the standard
+      version 1.02 and later versions.
+
+
+David Pollard (pollard@ucar.edu).  10/26/95.     

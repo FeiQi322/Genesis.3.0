@@ -1,0 +1,189 @@
+#---------- ------------------------------------
+# Makefile for compiling and linking Genesis v3,
+# using ifort (Intel Fortran compiler) for Linux 
+# systems, or f77 for Sun systems. 
+#-----------------------------------------------
+
+SHELL = /bin/sh
+.SUFFIXES: .F .o
+#.SILENT:
+
+#-----------------------------------------------------------------------
+
+# The following may need to be set for your system:
+#   System type (HOSTSYS = linux or sun)
+#   Locations of NetCDF system files:
+#     NI for netcdf.h,   (often in /usr/include or /usr/local/include)
+#     NA for libnetcdf.a (often in /usr/bin, /usr/local/bin or lib)
+#   DH = location of top-level Genesis directory
+#   COMPFLAGS and STATIC linux compilation switches (further below)  
+
+ HOSTSYS = linux
+#HOSTSYS = sun
+
+ NI = /usr/include
+ NA = /usr/bin
+#NI = /usr/local/include
+#NA = /usr/local/lib
+#NI = /usr/global/netcdf-3.5.1/include
+#NA = /usr/global/netcdf-3.5.1/lib
+
+# Set path to top-level GENESIS directory (contains source directories)
+# .. is ok if unchanged after untar-ing from tar file 
+ DH = ..
+
+#-----------------------------------------------------------------------
+
+ INCAGCM = $(DH)/Agcm/*.h
+ INCLSX = $(DH)/Lsx/*.h
+ INCEVE = $(DH)/Eve/src3/*.h
+
+#INCAGCM = $(DH)/Agcm/*.h  makegenv3
+#INCLSX = $(DH)/Lsx/*.h  makegenv3
+#INCEVE = $(DH)/Eve/src3/*.h  makegenv3
+
+VPATH = .:$(DH)/Agcm:$(DH)/Lsx:$(DH)/Eve/src3
+IPATH = -I. -I$(DH)/Agcm -I$(DH)/Lsx -I$(DH)/Eve/src3 -I$(NI)
+
+#-----------------------------------------------------------------------
+
+# T31 atmosphere, T31 surface resolutions:
+RESA =  T31
+RESS =  T31
+
+# T31 atmosphere, 2X2 surface resolutions:
+#RESA =  T31
+#RESS =  T31
+
+GENEXE = genexe_$(RESA)_$(RESS)
+DFLAGS = -DA_$(RESA) -DS_$(RESS) -Dgcm -Dnopack -Dneedfft -Dtablesvp -Domp -DNETCDF
+
+#-----------------------------------------------------------------------
+
+ifeq ($(HOSTSYS),linux)
+  FF = ifort
+
+ # -fpe0 causes the program to stop at a Floating Point Exception.
+ # Some linux systems accept -fpe0, on others it causes abends.
+  COMPFLAGS = -w -openmp -r8 -Dlinux
+ #COMPFLAGS = -w -openmp -r8 -Dlinux -fpe0 
+
+ # Some linux systems require -i-static and/or -align to avoid
+ # compilation errors and run-time abends.
+ # May need to change for your system:
+ #STATIC = 
+ #STATIC = -i-static
+  STATIC = -i-static -align
+endif
+
+ifeq ($(HOSTSYS),sun)
+  FF = f77
+  COMPFLAGS = -xtypemap=real:64,double:64,integer:32 \
+              -erroff=WDECL_LOCAL_NOTUSED -w -Dsun
+  STATIC = 
+endif
+
+LOADFLAGS =  -L$(NA) -lnetcdf
+
+#OPT   = -O0 
+ OPT   = -O2 
+#OPT   = -O3
+
+ DEBUG = 
+#DEBUG = -g
+#DEBUG = -g -C
+
+ DEBUGC =  
+
+ CC = cc
+
+#-----------------------------------------------------------------------
+
+$(GENEXE): \
+	    genctl.o    cloud.o   convec.o  \
+	    filio.o    hisres.o   init.o    \
+	    radctl.o     radsolar.o    radir.o  \
+	    slth.o   spect.o    util.o   vdif.o \
+	    budlsx.o    inisurf.o   radlsx.o    soil.o      utilsx.o \
+	    lsx.o       sheet.o     surfctl.o   vegdat.o histlsx.o \
+	    ibis.o      ocean.o     snow.o      turlsx.o \
+	    dice.o \
+	    canopy.o gv.o inertial.o irf.o lais.o \
+	    leaf.o leaff.o rcd.o rwlf.o scf.o \
+	    inline.o   convert.o 
+	echo '** Linking $(GENEXE)'
+
+	$(FF) $(OPT) $(COMPFLAGS) $(STATIC) -o $(GENEXE) \
+	    genctl.o    cloud.o   convec.o  \
+	    filio.o    hisres.o   init.o    \
+	    radctl.o     radsolar.o    radir.o  \
+	    slth.o   spect.o    util.o   vdif.o \
+	    budlsx.o    inisurf.o   radlsx.o    soil.o      utilsx.o \
+	    lsx.o       sheet.o     surfctl.o   vegdat.o histlsx.o \
+	    ibis.o      ocean.o     snow.o      turlsx.o \
+	    dice.o \
+	    canopy.o gv.o inertial.o irf.o lais.o \
+	    leaf.o leaff.o rcd.o rwlf.o scf.o \
+	    inline.o   convert.o              \
+	    $(LOADFLAGS)                  
+
+#-----------------------------------------------------------------------
+
+genctl.o: genctl.F   $(INCAGCM)
+cloud.o:  cloud.F    $(INCAGCM)
+convec.o: convec.F   $(INCAGCM)
+filio.o:  filio.F    $(INCAGCM)
+hisres.o: hisres.F   $(INCAGCM)
+init.o:   init.F     $(INCAGCM)
+radctl.o: radctl.F   $(INCAGCM)
+radsolar.o: radsolar.F  $(INCAGCM)
+radir.o: radir.F   $(INCAGCM)
+slth.o:   slth.F     $(INCAGCM)
+spect.o:  spect.F    $(INCAGCM)
+util.o:   util.F     $(INCAGCM)
+vdif.o:   vdif.F     $(INCAGCM)
+
+dice.o:    dice.F    $(INCLSX)
+budlsx.o:  budlsx.F  $(INCLSX)
+histlsx.o: histlsx.F $(INCLSX)
+inisurf.o: inisurf.F $(INCLSX)
+radlsx.o:  radlsx.F  $(INCLSX)
+soil.o:    soil.F    $(INCLSX)
+utilsx.o:  utilsx.F  $(INCLSX)
+lsx.o:     lsx.F     $(INCLSX)
+sheet.o:   sheet.F   $(INCLSX)
+surfctl.o: surfctl.F $(INCLSX)
+vegdat.o:  vegdat.F  $(INCLSX)
+ibis.o:    ibis.F    $(INCLSX)
+ocean.o:   ocean.F   $(INCLSX)
+snow.o:    snow.F    $(INCLSX)
+turlsx.o:  turlsx.F  $(INCLSX)
+
+canopy.o:   canopy.c   $(INCEVE)
+gv.o:       gv.c       $(INCEVE)
+inertial.o: inertial.c $(INCEVE)
+irf.o:      irf.c      $(INCEVE)
+lais.o:     lais.c     $(INCEVE)
+leaf.o:     leaf.c     $(INCEVE)
+leaff.o:    leaff.c    $(INCEVE)
+rcd.o:      rcd.c      $(INCEVE)
+rwlf.o:     rwlf.c     $(INCEVE)
+scf.o:      scf.c      $(INCEVE)
+
+inline.o: inline.F 
+convert.o: convert.c 
+
+
+#-----------------------------------------------------------------------
+
+.F.o:
+	echo '** Compiling $*.F'
+	$(FF) $(COMPFLAGS) $(STATIC) $(OPT) $(DEBUG) $(DFLAGS) $(IPATH) -c $<
+
+#-----------------------------------------------------------------------
+
+.c.o:
+	echo '** Compiling $*.c'
+	$(CC) $(DEBUGC)  -c $<
+
+#-----------------------------------------------------------------------

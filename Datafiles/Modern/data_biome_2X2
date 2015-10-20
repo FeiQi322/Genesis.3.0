@@ -1,0 +1,94 @@
+VEGT         180      90        lsx veg type (D-S, v.2)
+
+     -179      -159      -139      -119       -99       -79       -59       -39       -19         1        21        41        61        81       101       121       141       161
+
+ 89.0                                                                                                                                                                                       
+ 87.0                                                                                                                                                                                       
+ 85.0                                                                                                                                                                                       
+ 83.0                                                   AAAAAAAAAAA      AAAA  AAAAAAAA                                                                                                     
+ 81.0                                             AAAAAAAAA   AAAAAA                AAAAAA                                                      A A                                         
+ 79.0                                        AAA AAA AAAA    AAA                       AA              AAAA                                      AA AA                                      
+ 77.0                                AAAAAAA   AAAAAAAAAAA    AAA                      AA                AA  A                                      AAAAAA                                  
+ 75.0                                AAAAAAAA   A AAAAAA                              AAA                                     AA             AAAAAAAAAAAAAA            555  A               
+ 73.0                              AAAAAAAAAAA AAAAAAAAAAAAA          A             AAA                                     AAA     AA    AAAAAAAAAAAAAAAAAAAA55555     AAA                 
+ 71.0   A         AAAA              A  AAAAAAAA  AAA AAAAAAAAAAA      AAA          AAAA                      AAAA           4A     AAAAAAAAAAAAAAAAAAAAA5555555555AAAAAAAAAAAAAAAA          
+ 69.0   A      AAAAAAAAAAAAAAA444444AAAAAAAAAAA AAAAAA AA  AAAAAA      AA          AAA                   AAAAAAAAAAAA     4 4 4AAAAAAAAAAAAAAAAAAAAAAAAA5555555555AAAAAAAAAAAAAAAAAA55AAAAAA
+ 67.0   AAAAA  AAAA44444444444444444444444AAAAAAAAAAAAAAA    AAAAAA    AA                                AAAA4444444444 4444AAAAAAAAAAAAAAA5555555555555555555555555555555555555555AAAAAAAAA
+ 65.0     AA  AAAAA44444444444444444444444AAAAAAAAAAAAAAA  AAAAAAA      A             AAAAA            3AAAAA 44444444444444AAAAAAAAAAAAAAA5555555555555555555555555555555555555555AAAAAAAAA
+ 63.0          AAAAAAAAAAAAAA444AA4444444444444AAAAAA  AA  A  AAAA      A                            AAA44444444444444444444444444444444444444445555555555555555555555555555555555544444444A
+ 61.0          AAAAAAAAAAAAAA444AA4444444444444AAAA        AAAA                                     AAAA444 44444444444444444444444444444444444455555555555555555555555555555555  5444444   
+ 59.0            AAAAAA     4444AA44433333444444444        AAA44444                                  A33333  333333334444444444444444444444444444444444455555555555555555AAA A5   44        
+ 57.0             AA A        44AA44433333444444444444     AAA44444                            CC     3 333 333333333444444444444444444444444444444444445555555555555555        5444        
+ 55.0            A             44444444333333334444444444 44444444444                        CCCCC    CC3 3443333333333222CCCCC44CCCCC222CC4444444444444445555555555555         444         
+ 53.0                            444444333333334444444444 444444444444                       CC CCC CCCC333443333333333222CCCCC44CCCCC222CC4444444444444445555555555555555      44          
+ 51.0                             44444444CCCCCCC444444444444444444444                         CCCCCCCCCCCCCC22222CCC7777777CCCCCCCCCC777CC444444444444444BBB5555555555444      4           
+ 49.0                              4444444CCCCCCC44444444444444444   44                         CCCCCCCCCCCCC22222CCC7777777CCCCCCCCCC777CC444444444444444BBB55555555554 4                  
+ 47.0                               44444444777CCCCCCCCC3333333333    44                         CCCCCCCCCCCCCCCCCCCC77CCCC9999999999999999BBB44BBBBBBBBBBBBBBBCCC333333 4                  
+ 45.0                               44444444777CCCCCCCCC 3333333333                              CCCCCCCCCCCCCCCC CCC77CCC 9999 99999999999BBB44BBBBBBBBBBBBBBBCCC33333  4                  
+ 43.0                               88888888777CCCCCCC CCCCCCCC                              CCCCCCCC  33 333CCC      CCCC  99999999BBBBBBBBBBBBBBBBBBBBBBBBB33CCC333   444                 
+ 41.0                               88888888777CCCCCCCCCCCCCCC                               CCCCCC   3 33333CCCCCCCCCCCCCC 99999999BBBBBBBBBBBBBBBBBBBBBBBBB33CCC3     4                   
+ 39.0                               88888888444CCCCCCCCCCCCCC                                CCCCC    3   C CC CCCCCC77777C  9999999CCCCBBBBBBBBBBBBBBBBBBCCCC  CC      3                   
+ 37.0                                8888888444CCCCCCCCCCCCC                                  CCC  7777  C   C CCCCCC77777CC99999999CCCCAAAAAAAAAAAAAABBBBCCCCC  CC   333                   
+ 35.0                                9999944777CCCCCCCCCCCCC                                   8877777CC            777CCCCCBBBBBBBBAAAAAAAAAAAAAAAAACCCCCCCCC   C1 1111                    
+ 33.0                                  99944777CCCCCCCCCCCC                                  888877777CCC   B      7777CCCCCBBBBBBBBAAAAAAAAAAAAAAAAACCCCCCCCCC    11                       
+ 31.0                                   999988888CCCCCC444                                   8BBBBBBBBBBBBB BBBBBBBBBBB77777BBBBBBBBAACCCAAAAAAAAAAAAABB33CCCCC    1                        
+ 29.0                                   999988888CC C   44                                  88BBBBBBBBBBBBBBBBBBBBBBBBB777 7BBBBBBBBAACCCAAAAAAAAAAAAABB33CCCCC                             
+ 27.0                                    9 9888888       4                                 999BBBBBBBBBBBBBBBBBBBBB BBBBBBB BBBBBBBBCCCCCCCCCCAA11133CCCCCCCCC                              
+ 25.0                                     9988888                                         9999BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB BB BBBBCCCCCCCCCCAA11133CCCCCCCCCC                             
+ 23.0                                        4488       11                                99BBBBBBBBBBBBBBBBB999BBBB BBBBBBB7777    CCCCCCCCCCC222211111CCCC  C                             
+ 21.0                                        44888   11   111                            999BBBBBBBBBBBBBBBBB999BBBBBBBBBBBB7777     CCCCCCCCC  22211111CC                                  
+ 19.0                                         CCC1  11       111                          888888888BBBBBBBBBB999BB888 BBBBBBBB7       CCCCCCC    221111 1                                   
+ 17.0                                          CC11111                                    888888888BBBBBBBBBB999BB8888 BBBBBBB        CCCCC      2211111      1                             
+ 15.0                                              CCC11                                 66666666888888888888888888888899999           CCC         CC2222     1                             
+ 13.0                                                C11                                 66666666888888888888888888888899              CCC         CC2222     11                            
+ 11.0                                                  C    11116                         6666666666666666666666666668888888            CC         C CCC       77                           
+  9.0                                                   111111116666                       66666666666666666666666666888888             CCC        C  C        77                           
+  7.0                                                      1116611111                       1111166666666666666666666668888               C        11       7  77                           
+  5.0                                                      1116611111111                     11116  6666666666666666666888                        1 11     111                              
+  3.0                                                      11111111111111                              1111661116666688888                        1111    111                               
+  1.0                                                     111111111111111                             111116611166666888                           111  11111 1                             
+ -1.0                                                    111111111111111111                           111111111177 6688                             11   111111    11                       
+ -3.0                                                     11111111111111111111                         111111111776668                              111  111 11   1 111111                  
+ -5.0                                                    11111111111111111666888                        66666666776666                               11       11      11111  1              
+ -7.0                                                     11111111111111116668888                       66666666776666                                 1111            11111                
+ -9.0                                                     11111111111111666668888                       66666666226666                                      111 6       11 11               
+-11.0                                                      111111111111166666888                         6666666226666                                                                      
+-13.0                                                      88888111116666666666                         22222222226666    6                                        666   1                  
+-15.0                                                       8888111116666666666                         222222222266666  66                                     666666   66                 
+-17.0                                                         BB666666666666666                         22222222CC6666  666                                    666666666666                3
+-19.0                                                          B66666666666666                          22222222CC66    666                                   66666666666666                
+-21.0                                                          788866666666666                           99662226666    77                                  999BBB99999996666       6       
+-23.0                                                          78886666666666                            99662226666   777                                 9999BBB999999966666              
+-25.0                                                         888886666666                               9999666666     77                                 99999999999999777666             
+-27.0                                                         888886666666                               9999666666                                        99999999999999777666             
+-29.0                                                         888886688888                                999999CC                                         88888889999999666666             
+-31.0                                                         88888668888                                  99999C                                          88888889999999666666             
+-33.0                                                         88888CC888                                   99999                                           666666    666666611              
+-35.0                                                         88888CC88                                                                                     6         66666611              
+-37.0                                                        888888CCC                                                                                                  66666            3  
+-39.0                                                        888888CC                                                                                                    3               33 
+-41.0                                                        388888                                                                                                       33            33  
+-43.0                                                        38888                                                                                                         3           33   
+-45.0                                                       33888                                                                                                                    333    
+-47.0                                                       33888                                                                                                                     3     
+-49.0                                                       22888                                                                                                                           
+-51.0                                                       2288    8                                                                                                                       
+-53.0                                                        777                                                                                                                            
+-55.0                                                         777                                                                                                                           
+-57.0                                                                                                                                                                                       
+-59.0                                                                                                                                                                                       
+-61.0                                                                                                                                                                                       
+-63.0                                                                                                                                                                                       
+-65.0                                                                                                                                                                                       
+-67.0                                                                                                                                                                                       
+-69.0                                                                                                                                                                                       
+-71.0                                                                                                                                                                                       
+-73.0                                                                                                                                                                                       
+-75.0                                                                                                                                                                                       
+-77.0                                                                                                                                                                                       
+-79.0                                                                                                                                                                                       
+-81.0                                                                                                                                                                                       
+-83.0                                                                                                                                                                                       
+-85.0                                                                                                                                                                                       
+-87.0                                                                                                                                                                                       
+-89.0                                                                                                                                                                                       

@@ -1,0 +1,122 @@
+#!/bin/csh -fx
+
+##lion-xc:
+#PBS -q lionxc-essc
+##lion-xo:
+##PBS -q lionxo-ceka
+
+#PBS -l nodes=1:ppn=2
+#PBS -l walltime=96:00:00
+#PBS -l mem=200mb
+#PBS -j oe
+
+#----------------
+
+cd $PBS_O_WORKDIR
+
+#----------------
+
+set exp = snof
+set EXP = `echo $exp | tr "[a-z]" "[A-Z]"`
+
+#----------------
+
+set host = `hostname -s`
+set hostpre = `echo $host | cut -b1-6`
+if ($hostpre == 'lionxo' || $hostpre == 'lionxc') set host = lion
+
+echo "host = $host"
+
+if ($host == 'neptune' || $host == 'venus') then
+  set H = ~alr335/Genesis.3.0
+  set R = ~/Genesis.3.0
+else if ($host == 'lion') then
+  set H = /gpfs/home/dxp21
+  set R = /gpfs//scratch/dxp21
+else
+  echo "cannot run on this machine"
+  exit (-1)
+endif
+
+set RUN = $R/Run${exp}
+
+cd $RUN
+
+#----------------
+
+# Set base year, last year
+
+@ year_base = 2001
+@ year_last = 2100
+
+# Set current year (create or read existing year_file)
+
+if (! -e $RUN/year_file_$exp) then
+  @ year = $year_base
+  echo $year >! $RUN/year_file_$exp
+else
+  @ year = `cat $RUN/year_file_$exp`
+endif
+
+#----------------
+
+# Loop over years, with adaptive time step reduction each year 
+
+@ dtime = 1800
+
+#@@@@@@@@@@@@@@@@@@@@@@@@@@
+while ($year <= $year_last)
+#@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+  # Run Genesis
+
+  $RUN/deb$exp $year_base $year $dtime   # run for 1 year to 24:00 12/31
+  set statexe = $status
+ #if ($statexe != 0) exit ($statexe)
+
+#~~~~~~~~~~~~~~~~~~~
+  if (-e okend) then
+#~~~~~~~~~~~~~~~~~~~
+    # increment current year, save to stub file 
+
+    @ year = `cat $RUN/year_file_$exp`
+    @ year = $year + 1
+    echo $year >! $RUN/year_file_$exp
+    @ dtime = 1800
+#~~~~~
+  else
+#~~~~~
+    #  current year failed, half time step and retry 
+
+    if ($dtime >= 900) then 
+
+      echo "\n*** Abort - retrying year with halved timestep"
+      @ dtime = $dtime / 2
+      echo "    year=$year  statexe=$statexe  dtime(new)=$dtime"
+
+      @ yearlabprev = ($year - $year_base)    # 1 less than current year
+      if ($yearlabprev < 10) then
+        set yearlabprev = "00$yearlabprev"
+      else if ($yearlabprev < 100) then
+        set yearlabprev = "0$yearlabprev"
+      else if ($yearlabprev < 100) then
+        set yearlabprev = $yearlabprev
+      endif
+      cp -p $EXP${yearlabprev}RES nsre$exp
+
+    else
+
+      echo "\n*** Abort - too many okend failures"
+      echo "    year=$year  statexe=$statexe  dtime(failed)=$dtime"
+      exit ($statexe)
+
+    endif
+#~~~~~~
+  endif
+#~~~~~~
+
+#@@
+end
+#@@
+
+exit(0)

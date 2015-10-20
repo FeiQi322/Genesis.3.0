@@ -1,0 +1,38 @@
+README_GENESIS
+--------------
+
+The tar file targenv3.0 contains source code, runscripts, and data input files 
+used to compile, link and run the GENESIS version 3 Global Climate Model.
+Type "tar xvf targenv3.0" to extract the following, which are all written 
+under a top-level directory Genesis.3.0/:
+
+  Agcm/                   AGCM source code
+  Lsx/                    LSX (surface module) source code     
+  Eve/src3/               EVE (one of several vegetation models) source code 
+  Exec/makegenv3all       make file to compile and link GCM executable file
+  Runpres/                run a sample modern simulation
+  Datafiles/Modern/       data input files, ascii-map format, T31 & 2X2 resols
+  Utilities/              miscellaneous pre or post-processing utilities
+  Docs/                   documentation: V2 Users Guide, V2+,V3 release notes
+
+There are README_... files in the top-level directory (this file), and in
+Runpres, Utilites, and Docs. More detailed information is contained 
+in the V2.0 User's Guide, and in V2+,V3 release notes in the Docs directory.
+
+To compile and link an executable file, go to Exec/, and type
+  "gmake -f makegenv3all"
+
+The code has previously been compiled and run on Cray, IBM/SP, Sun, SGI, 
+and various Linux systems using the Intel Fortran compiler (ifort). 
+The makefile and run scripts supplied with this release are set up for Linux, 
+and may need slight editing for your system - see comments in the make file, 
+the script Runpres/debpres, and post-processing programs in Utilites/. 
+
+To run the sample modern siumulation, go to Runpres/, and type 
+  "runpres >&! outfile &"
+
+Both the make file (makegenv3all) and the run script file (debpres) may need
+to be edited slightly to tailor to your machine - see comments in those files.
+
+Any questions are welcome. Send to: 
+David Pollard (pollard@essc.psu.edu)

@@ -1,0 +1,308 @@
+c-----------------------------------------------------------------------
+c This file contains:
+
+c (1) Main-program fragments illustrating calling readdata and printdata
+c (2) Subroutine readdata that reads a GENESIS data input file
+c (3) Subroutine printdata that writes a GENESIS data input file
+c-----------------------------------------------------------------------
+
+      program mapinout
+
+c     Fragments to show ussage of readdata, printdata. See comments at
+c     the start of each subroutine describing the arguments.
+
+      parameter (nlon=180, nlat=90)
+      dimension xmask(nlon,nlat), array(nlon,nlat),
+     *          alon(nlon), alat(nlat)
+      parameter (pi=3.14159265358979)
+      data iuin, iuout /10, 11/
+
+
+c        Set Genesis surface-model grid (box centers)
+
+      do i=1,nlon
+        alon(i) = 2.*pi*(i-0.5)/nlon
+      enddo
+      do j=1,nlat
+        alat(j) = -pi/2. + pi*(j-0.5)/nlat
+      enddo
+
+
+c        Read in a Genesis data input file (A1 format)
+
+c     open (iuout, file='...', status='old')
+
+      call readdata (iuin, xmask, nlon, nlat,
+     *               'SURT    ', 'lsx surface type', 1)
+
+      close(iuin)
+
+
+c        Write out a new Genesis data file (A1 format)
+
+c     <set array...>
+
+c     open (iuout, file='...', status='old')
+
+      call printdata (array, alon, alat, nlon, nlat,
+     *               iuout, 'BASN    ', 'lsx drainage basins', 0, 1)
+
+      close(iuout)
+
+      stop
+      end
+
+c-----------------------------------------------------------------------
+c
+       subroutine printdata (arr, alon, alat, nlon, nlat,
+     *                       iu, ckey, ctitle, iblank, icode)
+
+c         Prints ascii map in format to be read by genesis model.
+ 
+c         arr  = 2x2 array 
+c         nlon = longitude dimension
+c         nlat = latitude  dimension
+c         alon = longitude grid (radians)
+c         alat = latitude  grid (radians)
+c         iu   = output unit number
+c         ckey = keyword
+c         ctitle = title
+c         iblank = special (nint(arr)) value for which to show blanks
+c         icode = 1 for i1->a1 format, 2 for i5->a5 format
+ 
+      dimension arr(nlon,nlat), alon(nlon), alat(nlat)
+      character ckey*8, ctitle*(*)
+
+      dimension alono(360), alato(180)
+      character ch(0:21)*1, carr(360,180)*5
+ 
+      data ch/'0','1','2','3','4','5','6','7','8','9',
+     *        'A','B','C','D','E','F','G','H','I','J','K',
+     *        'L'/
+
+      parameter (pi=3.14159265358979)
+ 
+
+c        Set output longitude and latitude scales
+
+      do i=1,nlon/2
+        j = nlon/2 + i
+        alono(i) = alon(j)*180./pi
+        alono(j) = alon(i)*180./pi
+        if (alono(i).gt.180.) alono(i) = alono(i) - 360.
+        if (alono(j).gt.180.) alono(j) = alono(j) - 360.
+      enddo
+      do i=1,nlat
+        alato(i) = alat(i)*180./pi
+      enddo
+
+c        Transfer values to carr array
+
+      if (icode.eq.1) then
+
+        do j=1,nlat
+          do i=1,nlon
+            m = nint(arr(i,j))
+            if (m.eq.iblank) then
+              carr(i,j) = ' '
+            else if (m.ge.0 .and. m.le.21) then
+              carr(i,j) = ch(m)
+            else 
+              carr(i,j) = '*'
+            endif
+          enddo
+        enddo
+
+      else
+
+        do j=1,nlat
+          do i=1,nlon
+            m = nint(arr(i,j))
+            if (m.eq.iblank) then
+              carr(i,j) = ' '
+            else if (m.ge.-9999 .and. m.le.9999) then
+              write(carr(i,j),'(i5)') m
+            else
+              carr(i,j) = ' ****'
+            endif
+          enddo
+        enddo
+
+      endif
+
+c        Print global map
+
+      if (icode.eq.1) then
+
+        write(iu,900) ckey, nlon, nlat, ctitle
+
+        write(iu,902) ( nint(alono(i)), i=1,nlon,10 )
+        write(iu,*)
+        do j=nlat,1,-1
+          write(iu,904) alato(j), ( carr(i,j), i=nlon/2+1,nlon ),
+     *                            ( carr(i,j), i=1,nlon/2 )
+        enddo
+c
+  900   format(a8,2i8,8x,a)
+  902   format(/5x,36(i4,6x))
+  904   format(f5.1,3x,360a1)
+
+      else
+
+        write(iu,900) ckey, nlon, nlat, ctitle
+
+        write(iu,952) ( nint(alono(i)), i=1,nlon )
+        write(iu,*)
+        do j=nlat,1,-1
+          write(iu,954) alato(j), ( carr(i,j), i=nlon/2+1,nlon ),
+     *                            ( carr(i,j), i=1,nlon/2 )
+        enddo
+c
+  952   format(/ 5x,3x,360i5)
+  954   format(f5.1,3x,360a5)
+
+      endif
+c
+      return
+      end
+c
+c-----------------------------------------------------------------------
+c
+      SUBROUTINE READDATA (IU, ARRA, MLON, MLAT,
+     *                     CLABEL, CDESCRIP, ICODE)
+C
+C        Similar to agcm subr (in util.f), with agcm-specific lines
+C        commented out.
+C
+C        Reads an agcm or lsx data input file, checking on label and
+C        dimensions in header record. Data files are ascii, with 1
+C        header record, 3 skip records (blank, longitude grid, blank),
+C        and MLAT data records. Each data record contains a
+C        latitude grid value, followed by MLON data values either
+C        in A1 or F5.0 format (flagged by ICODE). The longitudes are
+C        western hemisphere first, then eastern, ie, (I=MLON/2+1,MLON),
+C        (I=1,MLON/2). The data records are in reverse latitude-grid 
+C        order (J=MLAT,1,-1). Data values are returned in *real* array
+C        ARRA.
+C
+C        Permissible characters in A1 format are 0-9, blank(=0),
+C        A-Z (=10-35), or a-z(=10-35).
+C
+C        IU = unit number
+C        ARRA  = surface array to read rec # 2 into (rec # 1 is header)
+C        MLON  = longitude dimension
+C        MLAT  = latitude  dimension
+C        CLABEL = expected 8-byte label in word # 1, rec # 1
+C        CDESCRIP = file description (just for messages)
+C        ICODE = 1 for A1 format, 2 for F5.0 format.
+C
+C ---------------------------------------------------------------------
+CCALL PARAMS
+C ---------------------------------------------------------------------
+CCALL COMLUN
+C ---------------------------------------------------------------------
+      DIMENSION ARRA(MLON,MLAT)
+      CHARACTER CLABEL*(*), CDESCRIP*(*)
+      CHARACTER CARR(360,180)*1, CTMP*8
+C ---------------------------------------------------------------------
+C
+      NOUT = 6
+C
+C        Find index in program's file list (just for messages)
+C
+C      CALL FINDIU (IU, LOC)
+C
+C     WRITE(NOUT,5) CDESCRIP, LOCNAME(LOC)
+      WRITE(NOUT,5) CDESCRIP, ' '
+   5  FORMAT(/' Reading ',A,' data file ',A)
+C
+C        Open existing file
+C
+C     CALL OPENF (IU, 0)
+      IREC = 0
+C
+C        Read header record
+C
+      IREC = IREC + 1
+      READ(IU, 10, ERR=900, IOSTAT=IOS) CTMP, LONZ, LATZ
+   10 FORMAT(A8,2I8,8X,A)
+      IF (CTMP.NE.CLABEL .OR. LONZ.NE.MLON .OR. LATZ.NE.MLAT) THEN
+C        WRITE(NOUT,12) CDESCRIP, LOCNAME(LOC),
+         WRITE(NOUT,12) CDESCRIP, ' ',
+     *                  CTMP, LONZ, LATZ, CLABEL, MLON, MLAT
+   12    FORMAT(/' *** Fatal Error. Incorrect ', A,' data file ',A
+     *          /'     File     label, longitude, latitude = ',A8, 2I6
+     *          /'     Expected label, longitude, latitude = ',A8, 2I6/)
+C        CALL ENDRUN
+         STOP
+      ENDIF
+C
+C        Skip 3 records (blank, longitude grid, blank)
+C
+      IREC = IREC + 3
+      READ(IU, 50, ERR=900, IOSTAT=IOS)
+   50 FORMAT(//)
+C
+      IF (ICODE.EQ.1) THEN
+C
+C          Read "A1-format" data records
+C
+        DO 100 J=MLAT,1,-1
+          IREC = IREC + 1
+          READ (IU,102,ERR=900,IOSTAT=IOS) (CARR(I,J),I=MLON/2+1,MLON),
+     *                                     (CARR(I,J),I=1,MLON/2)
+  102     FORMAT(5X,3X,360A1)
+          DO 104 I=1,MLON
+            IC = ICHAR(CARR(I,J)(1:1))
+            IF (IC.EQ.ICHAR(' ')) THEN
+              ARRA(I,J) = 0
+            ELSE IF (IC.GE.ICHAR('0') .AND. IC.LE.ICHAR('9')) THEN
+              ARRA(I,J) = IC - ICHAR('0')
+            ELSE IF (IC.GE.ICHAR('A') .AND. IC.LE.ICHAR('Z')) THEN
+              ARRA(I,J) = IC - ICHAR('A') + 10
+            ELSE IF (IC.GE.ICHAR('a') .AND. IC.LE.ICHAR('z')) THEN
+              ARRA(I,J) = IC - ICHAR('a') + 10
+            ELSE
+              GOTO 910
+            ENDIF
+  104     CONTINUE
+  100   CONTINUE
+C
+      ELSE
+C
+C          Read "F5.0-format" data records
+C
+        DO 150 J=MLAT,1,-1
+          IREC = IREC + 1
+          READ (IU,152,ERR=900,IOSTAT=IOS) (ARRA(I,J),I=MLON/2+1,MLON),
+     *                                     (ARRA(I,J),I=1,MLON/2)
+  152     FORMAT(5X,3X,360F5.0)
+  150   CONTINUE
+C
+      ENDIF
+C
+      RETURN
+C
+C        Fatal errors
+C
+C 900 WRITE(NOUT,902) CDESCRIP, LOCNAME(LOC), IREC, IOS
+  900 WRITE(NOUT,902) CDESCRIP, ' ',          IREC, IOS
+  902 FORMAT(/' *** Error reading ',A,' data file ',A
+     *       /'     record number=',I6
+     *       /'     Iostat code  =',I6/)
+C     CALL ENDRUN
+      STOP
+C
+C 910 WRITE(NOUT,912) CDESCRIP, LOCNAME(LOC), IREC, I, J, CARR(I,J)
+  910 WRITE(NOUT,912) CDESCRIP, ' ',          IREC, I, J, CARR(I,J)
+  912 FORMAT(/' *** Bad character in ',A,' data file ',A
+     *       /'     record number   =',I6
+     *       /'     longitude index =',I6
+     *       /'     latitude  index =',I6
+     *       /'     bad character   =',A1/)
+C     CALL ENDRUN
+      STOP
+C
+      END
+c
+c-----------------------------------------------------------------------

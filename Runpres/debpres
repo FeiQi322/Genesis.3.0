@@ -1,0 +1,270 @@
+#!/bin/csh -fx
+
+# Genesis Version 3.0 preindustrial control 
+
+ set debug = 0
+#set debug = 1
+
+set exp = pres 
+set EXP = `echo $exp | tr "[a-z]" "[A-Z]"`
+
+set vegtype   = 0                 # 0 = D+S, 1 = wisc, 2 = eve/leaf
+set oceantype = 1                 # 0 = presc SST, 1 = slab, 2 = ogcm
+set resa      = T31               # R15,T31,... = agcm resol
+set ress      = 2X2               # R15,T31,2X2 = surface resol
+
+set pshell = ''
+
+set nonomatch
+
+#-------------
+
+set host = `hostname`
+set hostsys = linux
+ 
+#-------------
+
+
+
+
+set STOREXE      = /gpfs/home/rfr5151/Genesis.3.0/Exec
+set genexe       = genexe_T31_2X2
+
+set STOREDAT     = /gpfs/home/rfr5151/work/Datafiles/V2
+set STOREDATM    = /gpfs/home/rfr5151/work/Datafiles/V2
+set STOREDATI    = /gpfs/home/rfr5151/work/Datafiles/Isot
+set EVEIN        = /gpfs/home/rfr5151/Genesis.3.0/leaff
+
+set RUN           = /gpfs/home/rfr5151/Genesis.3.0/Run${exp}
+cd $RUN
+
+#---------------
+
+if ($1 != '' && $2 != '') then
+  @ year_base = $1
+  @ year      = $2
+  if ($year == $year_base) then
+    set nsrest = -1
+   #set nsrest =  0
+  else
+    set nsrest = 1
+  endif
+else
+  @ year_base = 2001
+  @ year      = 2001
+  set nsrest = 0
+endif
+
+@ yearlab = ($year - $year_base) + 1
+
+if ($yearlab < 10) then
+  set yearlab = "00$yearlab"
+else if ($yearlab < 100) then
+  set yearlab = "0$yearlab"
+else if ($yearlab < 100) then
+  set yearlab = $yearlab
+endif
+
+#---------
+
+# for eve/leaf:
+if ($vegtype == '2') then
+  if (! -e leaff) mkdir leaff
+  if (! -e leaff/leaf_file) then
+    cp -p $EVEIN/leaf_file_001_2001 leaff/
+    cp -p $EVEIN/leaf_file_001_2001 leaff/leaf_file
+  endif
+endif
+
+#---------
+
+cat >! interm << ENDINTERM
+E\$INPUT
+
+ ;           '----------------------'
+  RUNTITLE = 'v3.0 $exp'
+  NSREST   = $nsrest
+
+ ;NSREST_ISOT   = -1       ; change to 1 after initial start
+ ;NSREST_ISOT   =  1
+
+  TEQCOLD = 285.
+  TPOCOLD = 275.
+
+  BASEDATE = '${year_base}/01/01'
+  ENDDATE  = '${year}/12/31'
+
+  MSNAMIN  = 'nsre$exp'
+  MSNAMHIS= '${EXP}001','${EXP}002','${EXP}003','${EXP}004','${EXP}005',
+            '${EXP}006','${EXP}007','${EXP}008','${EXP}009','${EXP}010',
+            '${EXP}011','${EXP}012','${EXP}013','${EXP}014','${EXP}015',
+            '${EXP}016','${EXP}017','${EXP}018','${EXP}019','${EXP}020',
+            '${EXP}021','${EXP}022','${EXP}023','${EXP}024','${EXP}025',
+            '${EXP}026','${EXP}027','${EXP}028','${EXP}029','${EXP}030',
+            '${EXP}031','${EXP}032','${EXP}033','${EXP}034','${EXP}035',
+            '${EXP}036','${EXP}037','${EXP}038','${EXP}039','${EXP}040',
+            '${EXP}041','${EXP}042','${EXP}043','${EXP}044','${EXP}045',
+            '${EXP}046','${EXP}047','${EXP}048','${EXP}049','${EXP}050'
+            '${EXP}051','${EXP}052','${EXP}053','${EXP}054','${EXP}055',
+            '${EXP}056','${EXP}057','${EXP}058','${EXP}059','${EXP}060'
+            '${EXP}061','${EXP}062','${EXP}063','${EXP}064','${EXP}065',
+            '${EXP}066','${EXP}067','${EXP}068','${EXP}069','${EXP}070'
+            '${EXP}071','${EXP}072','${EXP}073','${EXP}074','${EXP}075',
+            '${EXP}076','${EXP}077','${EXP}078','${EXP}079','${EXP}080'
+            '${EXP}081','${EXP}082','${EXP}083','${EXP}084','${EXP}085',
+            '${EXP}086','${EXP}087','${EXP}088','${EXP}089','${EXP}090'
+            '${EXP}091','${EXP}092','${EXP}093','${EXP}094','${EXP}095',
+            '${EXP}096','${EXP}097','${EXP}098','${EXP}099','${EXP}100'
+  MSNAMRE2 = 'nsre$exp'
+
+  MSPATH   = './' ;path where the history files write
+  PASSWD   = 'paleo1'
+  RETPD    = 4000
+
+  NSAVE    = 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
+  NNEXF    = 365
+
+  NHISI    = 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
+  NDHIS    = 0
+
+  CUSHNAM  = 'ORO*    ',  'TOPOG*  ',  'TOPOGUN*',
+             'PS      ',  'PSLEV   ',  'Z200    ',  'Z500    ',
+             'T       ',  'Q       ',  'U       ',  'V       ',
+             'OMEGA   ',  'CLOUD   ',
+             'TOTCLD  ',  'TOTCLDC ',  'TOTCLDS ',  'TOTCLDA ',
+             'HFLR    ',  'QFLR    ',  'PRECL   ',  'PRECC   ',
+             'SOLIN   ',  'SABTP   ',  'SABAT   ',  'FIRTP   ',
+             'FRSA    ',  'FRLA    ',  'FRLD    ',  'SRAD    ',
+             'FRSAV   ',  'FRSAN   ',  'FRSIV   ',  'FRSIN   ',
+             'FRSAC   ',
+             'CLRST   ',  'CLRLT   ',  'CLRSS   ',  'CLRLS   ',
+             'PBL03   ',  'PBL15   ',  'RHUMID  ',  'SURWIND ',
+             'LWC     ',  'TOTLWC  ',  'RAINF   ',  'SNOWF   '
+
+  OCEANTYPE = $oceantype
+  DYNAMICE = .T.    PRESCOUV =.T.
+
+  SHOWMAPS  = .F.   BUDFREQ  = 365.
+  LONOLSX   =  1    LATOLSX  = 89     TIMOLSX  = 0.
+
+  VEGTYPE   = $vegtype
+
+  HISNET = .T.
+
+  DELEVTYPE = 1 ; (everywhere)
+
+;REGHIS  = '${EXP}_REG'
+;REGPATH = '/home/data05/MIS31_400'
+;REGFREQ = 6
+
+
+ ;================
+ ;data input files:
+  TOPOG_FILE     ='$STOREDAT/data_top_$resa'     ; agcm topography 
+  OZONE_FILE     ='$STOREDAT/data_ozone_$resa'   ; agcm ozone amount
+  GWD_FILE       ='$STOREDAT/data_gwd_$resa'     ; agcm gravity wave drg
+  TOPOG2_FILE    ='$STOREDAT/data_top_$ress'     ; sfc-grid topography
+  VEG_FILE       ='$STOREDAT/data_biome_$ress'   ; D+S biomes(vegtype=0)
+ ;WISCVEG_FILE   ='$STOREDAT/data_wisc_$ress'    ; Wisc veg (vegtype=1)
+  SURFTYPE_FILE  ='$STOREDAT/data_sur_$ress'     ; surface type 
+  FWATER_FILE    ='$STOREDAT/data_fwater_$ress'  ; open-water amount
+  OCEANUV_FILE   ='$STOREDAT/data_ouv_$ress'     ; ocn u,v (oceantype=1)
+  SST_FILE       ='$STOREDAT/data_sst_$ress'     ; sst/sice(oceantype=0)
+  ISOT_O_FILE    ='$STOREDATI/data_oceanisot_$ress' ; isotopic ocn codes
+
+  SOILTEX01_FILE ='$STOREDAT/data_soit01_$ress'  ; soil texture, layer 1
+  SOILTEX02_FILE ='$STOREDAT/data_soit02_$ress'  ; soil texture, layer 2
+  SOILTEX03_FILE ='$STOREDAT/data_soit03_$ress'  ; soil texture, layer 3
+  SOILTEX04_FILE ='$STOREDAT/data_soit04_$ress'  ; soil texture, layer 4
+  SOILTEX05_FILE ='$STOREDAT/data_soit05_$ress'  ; soil texture, layer 5
+  SOILTEX06_FILE ='$STOREDAT/data_soit06_$ress'  ; soil texture, layer 6
+ ;================
+
+
+;ECCU  = .017236 ; modern orbit
+;OBLU  =  23.446 ; modern orbit
+;PRECU =  101.37 ; modern orbit
+
+
+ \$END
+
+ ;----------------------------------------------------------------------
+
+E\$RADOTG
+
+  SOLFAC  = 1.
+  SOLPAR  = 1367.     ; 
+  CO2PPV  = 288.e-6   ; IPCC preindustrial 
+  CH4PPV  = 0.800e-6  ; IPCC preindustrial
+  N2OPPV  = 0.288e-6  ; IPCC preindustrial
+  F11PPV  = 0.000e-9  ; IPCC preindustrial
+  F12PPV  = 0.000e-9  ; IPCC preindustrial
+
+ \$END
+
+ ;----------------------------------------------------------------------
+
+E\$INPUTLSX
+
+  CUSHNAM_A = 'LMASK*  ',  'HOCEAN* ',  'FWATER* ',
+              'TS      ',  'TA      ',  'TS2     ',  'TS2_M   ',
+              'WET1    ',  'WET2    ',  'WET3    ',
+              'WET4    ',  'WET5    ',  'WET6    ',
+              'WICE1   ',  'WICE2   ',  'WICE3   ',
+              'WICE4   ',  'WICE5   ',  'WICE6   ',
+              'SNOWH   ',  'SNOWF   ',  'ICEH    ',  'ICEF    ',
+              'RUNOFF  ',  'DRAIN   ',  'TRANSP  ',  'AVAP    ',
+              'TAUX    ',  'TAUY    ',  'QFLUX   ',
+              'PRECIP  ',  'RAINFA  ',  'SNOWFA  ',
+              'LAIT*   ',  'SAIT*   ',
+              'INTVAP  ',  'SURVAP  ',  'FOGRAT  ',
+              'UICE    ',  'VICE    ',  'BRINE   ',
+              'TOCEAN  ',  'SOCEAN  ',  'UOCEAN  ',  'VOCEAN  ',  
+              'HFLXOCN ',  'PMEOCN  '
+
+ \$END
+ENDINTERM
+
+#-------------------------------------------------------------------
+
+rm -f .assigngen fort.6 fort.[5-7][0-9] .jagen
+touch fort.6
+
+sed  -e 's/^E/\ /g'  -e 's/;.*//g'  interm >! interma
+mv interma interm
+
+echo '=============='   >> fort.6
+echo 'Namelist Input'   >> fort.6
+echo '==============\n' >> fort.6
+cat interm >> fort.6
+echo '\n====================='   >> fort.6
+echo   'End of Namelist Input'   >> fort.6
+echo   '=====================\n' >> fort.6
+
+#-------------
+
+ unlimit
+ #setenv OMP_NUM_THREADS 4   # lionxc
+  setenv OMP_NUM_THREADS 4    # lionxo luna
+ setenv OMP_DYNAMIC FALSE
+#setenv KMP_STACKSIZE 250m
+ setenv KMP_STACKSIZE 50m
+
+#-------------
+
+# Run Genesis
+
+($pshell $STOREXE/$genexe < interm) >>& fort.6
+if ($status != 0) exit ($status)
+mv fort.6  fort.6_${yearlab}
+
+if ($host == 'terra'   || \
+    $host == 'uranus' || $host == 'neptune' || \
+    $host == 'lionxo' || $host == 'lionxc') then
+  ~/Conv/convnetonly              -lsx  ${exp}${yearlab}
+else if ($hostsys == 'linux') then
+  ~/Conv/convnetlinux -wantfile         ${exp}${yearlab}
+  ~/Conv/convnetlinux -wantfile   -lsx  ${exp}${yearlab}
+endif
+
+exit (0)

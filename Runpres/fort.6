@@ -1,0 +1,481 @@
+==============
+Namelist Input
+==============\n
+ $INPUT
+
+ 
+  RUNTITLE = 'v3.0 pres'
+  NSREST   = 1
+
+ 
+ 
+
+  TEQCOLD = 285.
+  TPOCOLD = 275.
+
+  BASEDATE = '2000/01/01'
+  ENDDATE  = '2001/12/31'
+
+  MSNAMIN  = 'nsrepres'
+  MSNAMHIS= 'PRES001','PRES002','PRES003','PRES004','PRES005',
+            'PRES006','PRES007','PRES008','PRES009','PRES010',
+            'PRES011','PRES012','PRES013','PRES014','PRES015',
+            'PRES016','PRES017','PRES018','PRES019','PRES020',
+            'PRES021','PRES022','PRES023','PRES024','PRES025',
+            'PRES026','PRES027','PRES028','PRES029','PRES030',
+            'PRES031','PRES032','PRES033','PRES034','PRES035',
+            'PRES036','PRES037','PRES038','PRES039','PRES040',
+            'PRES041','PRES042','PRES043','PRES044','PRES045',
+            'PRES046','PRES047','PRES048','PRES049','PRES050'
+            'PRES051','PRES052','PRES053','PRES054','PRES055',
+            'PRES056','PRES057','PRES058','PRES059','PRES060'
+            'PRES061','PRES062','PRES063','PRES064','PRES065',
+            'PRES066','PRES067','PRES068','PRES069','PRES070'
+            'PRES071','PRES072','PRES073','PRES074','PRES075',
+            'PRES076','PRES077','PRES078','PRES079','PRES080'
+            'PRES081','PRES082','PRES083','PRES084','PRES085',
+            'PRES086','PRES087','PRES088','PRES089','PRES090'
+            'PRES091','PRES092','PRES093','PRES094','PRES095',
+            'PRES096','PRES097','PRES098','PRES099','PRES100'
+  MSNAMRE2 = 'nsrepres'
+
+  MSPATH   = './' 
+  PASSWD   = 'paleo1'
+  RETPD    = 4000
+
+  NSAVE    = 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
+  NNEXF    = 365
+
+  NHISI    = 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
+  NDHIS    = 0
+
+  CUSHNAM  = 'ORO*    ',  'TOPOG*  ',  'TOPOGUN*',
+             'PS      ',  'PSLEV   ',  'Z200    ',  'Z500    ',
+             'T       ',  'Q       ',  'U       ',  'V       ',
+             'OMEGA   ',  'CLOUD   ',
+             'TOTCLD  ',  'TOTCLDC ',  'TOTCLDS ',  'TOTCLDA ',
+             'HFLR    ',  'QFLR    ',  'PRECL   ',  'PRECC   ',
+             'SOLIN   ',  'SABTP   ',  'SABAT   ',  'FIRTP   ',
+             'FRSA    ',  'FRLA    ',  'FRLD    ',  'SRAD    ',
+             'FRSAV   ',  'FRSAN   ',  'FRSIV   ',  'FRSIN   ',
+             'FRSAC   ',
+             'CLRST   ',  'CLRLT   ',  'CLRSS   ',  'CLRLS   ',
+             'PBL03   ',  'PBL15   ',  'RHUMID  ',  'SURWIND ',
+             'LWC     ',  'TOTLWC  ',  'RAINF   ',  'SNOWF   '
+
+  OCEANTYPE = 1
+  DYNAMICE = .T.    PRESCOUV =.T.
+
+  SHOWMAPS  = .F.   BUDFREQ  = 365.
+  LONOLSX   =  1    LATOLSX  = 89     TIMOLSX  = 0.
+
+  VEGTYPE   = 0
+
+  HISNET = .T.
+
+  DELEVTYPE = 1 
+
+
+
+
+
+
+ 
+ 
+  TOPOG_FILE     ='/gpfs/home/rfr5151/work/Datafiles/V2/data_top_T31'     
+  OZONE_FILE     ='/gpfs/home/rfr5151/work/Datafiles/V2/data_ozone_T31'   
+  GWD_FILE       ='/gpfs/home/rfr5151/work/Datafiles/V2/data_gwd_T31'     
+  TOPOG2_FILE    ='/gpfs/home/rfr5151/work/Datafiles/V2/data_top_2X2'     
+  VEG_FILE       ='/gpfs/home/rfr5151/work/Datafiles/V2/data_biome_2X2'   
+ 
+  SURFTYPE_FILE  ='/gpfs/home/rfr5151/work/Datafiles/V2/data_sur_2X2'     
+  FWATER_FILE    ='/gpfs/home/rfr5151/work/Datafiles/V2/data_fwater_2X2'  
+  OCEANUV_FILE   ='/gpfs/home/rfr5151/work/Datafiles/V2/data_ouv_2X2'     
+  SST_FILE       ='/gpfs/home/rfr5151/work/Datafiles/V2/data_sst_2X2'     
+  ISOT_O_FILE    ='/gpfs/home/rfr5151/work/Datafiles/Isot/data_oceanisot_2X2' 
+
+  SOILTEX01_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit01_2X2'  
+  SOILTEX02_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit02_2X2'  
+  SOILTEX03_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit03_2X2'  
+  SOILTEX04_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit04_2X2'  
+  SOILTEX05_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit05_2X2'  
+  SOILTEX06_FILE ='/gpfs/home/rfr5151/work/Datafiles/V2/data_soit06_2X2'  
+ 
+
+
+
+
+
+
+
+ $END
+
+ 
+
+ $RADOTG
+
+  SOLFAC  = 1.
+  SOLPAR  = 1367.     
+  CO2PPV  = 288.e-6   
+  CH4PPV  = 0.800e-6  
+  N2OPPV  = 0.288e-6  
+  F11PPV  = 0.000e-9  
+  F12PPV  = 0.000e-9  
+
+ $END
+
+ 
+
+ $INPUTLSX
+
+  CUSHNAM_A = 'LMASK*  ',  'HOCEAN* ',  'FWATER* ',
+              'TS      ',  'TA      ',  'TS2     ',  'TS2_M   ',
+              'WET1    ',  'WET2    ',  'WET3    ',
+              'WET4    ',  'WET5    ',  'WET6    ',
+              'WICE1   ',  'WICE2   ',  'WICE3   ',
+              'WICE4   ',  'WICE5   ',  'WICE6   ',
+              'SNOWH   ',  'SNOWF   ',  'ICEH    ',  'ICEF    ',
+              'RUNOFF  ',  'DRAIN   ',  'TRANSP  ',  'AVAP    ',
+              'TAUX    ',  'TAUY    ',  'QFLUX   ',
+              'PRECIP  ',  'RAINFA  ',  'SNOWFA  ',
+              'LAIT*   ',  'SAIT*   ',
+              'INTVAP  ',  'SURVAP  ',  'FOGRAT  ',
+              'UICE    ',  'VICE    ',  'BRINE   ',
+              'TOCEAN  ',  'SOCEAN  ',  'UOCEAN  ',  'VOCEAN  ',  
+              'HFLXOCN ',  'PMEOCN  '
+
+ $END
+\n=====================
+End of Namelist Input
+=====================\n
+/gpfs/home/rfr5151/Genesis.3.0/Exec/genexe_T31_2X2
+
+                 ==============================================
+                 | GENESIS CLIMATE MODEL    VERSION: 3.0      |
+                 | DATE: 20150521           TIME:  145658.245 |
+                 | with omp multiprocessing                   |
+                 ==============================================
+
+
+ Reading namelist input (group name INPUT)...
+
+ 
+
+ Reading namelist input (group name RADOTG)...
+
+ 
+
+ ----------------------------
+ Opening initial/restart file ./nsrepres        
+ ----------------------------
+
+    Reading header records...
+       run title           : v3.0 pres
+       file version number :          3.10
+       file machine type   : IEEE    
+       base date           :      20000101
+       elapsed days        :     18674.000
+       elapsed years       :        51.162
+       agcm resolutions    :    96    48    18
+
+    Reading agcm    fields...
+
+    Reading surface fields...
+         surface lsx resolutions  :   180    90
+ ----------------------------
+
+ *** Warning: Ignoring entered base date    39000101
+     since this is a restart run (NSREST=1).
+     Using base date from restart file:     20000101
+
+
+ -----------------------------------
+ *** Model Resolutions and Grids ***
+ -----------------------------------
+
+ Agcm    longitude resolution:  96
+ Agcm    latitude  resolution:  48
+ Agcm    sigma levels        :  18
+ Surface longitude resolution: 180
+ Surface latitude  resolution:  90
+
+ Agcm latitude grid:
+ -87.159 -83.479 -79.777 -76.070 -72.362 -68.652 -64.942 -61.232 -57.521 -53.810
+ -50.099 -46.389 -42.678 -38.967 -35.256 -31.545 -27.833 -24.122 -20.411 -16.700
+ -12.989  -9.278  -5.567  -1.856   1.856   5.567   9.278  12.989  16.700  20.411
+  24.122  27.833  31.545  35.256  38.967  42.678  46.389  50.099  53.810  57.521
+  61.232  64.942  68.652  72.362  76.070  79.777  83.479  87.159
+
+ Agcm gaussian weights (sum =  2.0000):
+  0.0032  0.0073  0.0115  0.0156  0.0196  0.0236  0.0274  0.0312  0.0348  0.0382
+  0.0415  0.0447  0.0476  0.0504  0.0529  0.0552  0.0573  0.0591  0.0607  0.0620
+  0.0631  0.0639  0.0645  0.0647  0.0647  0.0645  0.0639  0.0631  0.0620  0.0607
+  0.0591  0.0573  0.0552  0.0529  0.0504  0.0476  0.0447  0.0415  0.0382  0.0348
+  0.0312  0.0274  0.0236  0.0196  0.0156  0.0115  0.0073  0.0032
+
+ Agcm sigma mid-levels:
+  0.0050  0.0130  0.0330  0.0640  0.0990  0.1390  0.1890  0.2510  0.3250  0.4090
+  0.5010  0.5980  0.6950  0.7870  0.8660  0.9290  0.9700  0.9930
+
+ Agcm sigma level boundaries:
+  0.0030  0.0080  0.0220  0.0490  0.0830  0.1180  0.1630  0.2190  0.2880  0.3670
+  0.4560  0.5510  0.6490  0.7440  0.8310  0.9030  0.9560  0.9850  1.0000
+ 
+
+ Reading agcm topography data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_top_T31
+    File comment   : Topography from Navy 1x1 (m)
+    File resolution:    96    48
+
+ Reading agcm standard-deviation topography file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_gwd_T31
+    File comment   : Gravity-wave-drag s.d. topog (m).  resol=T31.
+    File resolution:    96    48
+
+ Truncated topography increased globally by    36.36  m (to make ocean mean = zero)
+
+ Global mean truncated surface topography =   208.30  m (cf: present observed 237.3  m)
+ Global mean dry atmospheric mass         = 98566.79 Pa (cf: present observed 98400 Pa)
+
+ Reading namelist input (group name: INPUTLSX)...
+
+
+ Reading surface-type data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_sur_2X2
+    File comment   : lsx surface type (v.2)
+    File resolution:   180    90
+
+ Reading surface topography data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_top_2X2
+    File comment   : Topography from Navy 1x1 (m)
+    File resolution:   180    90
+
+ Reading percent open water data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_fwater_2X2
+    File comment   : % open water: +ve deep, -ve shallow (v.2)
+    File resolution:   180    90
+
+ Reading surface-ocean-current data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_ouv_2X2
+    File comment   : ocean surface eastward current (mm/s)
+    File resolution:   180    90
+    File comment   : ocean surface northward current (mm/s)
+    File resolution:   180    90
+
+ Reading soil-texture data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_soit01_2X2
+    File comment   : soil texture: %sand*100 + %clay, layer  1 (v.2)
+    File resolution:   180    90
+
+ Reading soil-texture data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_soit02_2X2
+    File comment   : soil texture: %sand*100 + %clay, layer  2 (v.2)
+    File resolution:   180    90
+
+ Reading soil-texture data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_soit03_2X2
+    File comment   : soil texture: %sand*100 + %clay, layer  3 (v.2)
+    File resolution:   180    90
+
+ Reading soil-texture data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_soit04_2X2
+    File comment   : soil texture: %sand*100 + %clay, layer  4 (v.2)
+    File resolution:   180    90
+
+ Reading soil-texture data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_soit05_2X2
+    File comment   : soil texture: %sand*100 + %clay, layer  5 (v.2)
+    File resolution:   180    90
+
+ Reading soil-texture data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_soit06_2X2
+    File comment   : soil texture: %sand*100 + %clay, layer  6 (v.2)
+    File resolution:   180    90
+
+ Reading Dorman-Sellers vegetation data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_biome_2X2
+    File comment   : lsx veg type (D-S, v.2)
+    File resolution:   180    90
+
+ Reading agcm ozone mixing-ratio data file
+    /gpfs/home/rfr5151/work/Datafiles/V2/data_ozone_T31
+    file comment   : T31 ozone volume mixing ratios (ppb) for JAN      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for FEB      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for MAR      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for APR      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for MAY      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for JUN      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for JUL      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for AUG      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for SEP      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for OCT      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for NOV      at  23 pressure levels (Pa)
+    file resolution:    23    48
+    file comment   : T31 ozone volume mixing ratios (ppb) for DEC      at  23 pressure levels (Pa)
+    file resolution:    23    48
+
+ Orbital parameters for this run:
+    eccentricity: 0.016706
+    obliquity   :  23.4379
+    precession  :  77.0784
+
+ Timestep=  896400   Elapsed days= 18675.000   Calendar days=  60.000   Date=    2051/03/01 A.D. + 86400 secs
+
+ Timestep=  896448   Elapsed days= 18676.000   Calendar days=  61.000   Date=    2051/03/02 A.D. + 86400 secs
+
+ Timestep=  896496   Elapsed days= 18677.000   Calendar days=  62.000   Date=    2051/03/03 A.D. + 86400 secs
+
+ Timestep=  896544   Elapsed days= 18678.000   Calendar days=  63.000   Date=    2051/03/04 A.D. + 86400 secs
+
+ Timestep=  896592   Elapsed days= 18679.000   Calendar days=  64.000   Date=    2051/03/05 A.D. + 86400 secs
+
+ Timestep=  896640   Elapsed days= 18680.000   Calendar days=  65.000   Date=    2051/03/06 A.D. + 86400 secs
+
+ Timestep=  896688   Elapsed days= 18681.000   Calendar days=  66.000   Date=    2051/03/07 A.D. + 86400 secs
+
+ Timestep=  896736   Elapsed days= 18682.000   Calendar days=  67.000   Date=    2051/03/08 A.D. + 86400 secs
+
+ Timestep=  896784   Elapsed days= 18683.000   Calendar days=  68.000   Date=    2051/03/09 A.D. + 86400 secs
+
+ Timestep=  896832   Elapsed days= 18684.000   Calendar days=  69.000   Date=    2051/03/10 A.D. + 86400 secs
+
+ Timestep=  896880   Elapsed days= 18685.000   Calendar days=  70.000   Date=    2051/03/11 A.D. + 86400 secs
+
+ Timestep=  896928   Elapsed days= 18686.000   Calendar days=  71.000   Date=    2051/03/12 A.D. + 86400 secs
+
+ Timestep=  896976   Elapsed days= 18687.000   Calendar days=  72.000   Date=    2051/03/13 A.D. + 86400 secs
+
+ Timestep=  897024   Elapsed days= 18688.000   Calendar days=  73.000   Date=    2051/03/14 A.D. + 86400 secs
+
+ Timestep=  897072   Elapsed days= 18689.000   Calendar days=  74.000   Date=    2051/03/15 A.D. + 86400 secs
+
+ Timestep=  897120   Elapsed days= 18690.000   Calendar days=  75.000   Date=    2051/03/16 A.D. + 86400 secs
+
+ Timestep=  897168   Elapsed days= 18691.000   Calendar days=  76.000   Date=    2051/03/17 A.D. + 86400 secs
+
+ Timestep=  897216   Elapsed days= 18692.000   Calendar days=  77.000   Date=    2051/03/18 A.D. + 86400 secs
+
+ Timestep=  897264   Elapsed days= 18693.000   Calendar days=  78.000   Date=    2051/03/19 A.D. + 86400 secs
+
+ Timestep=  897312   Elapsed days= 18694.000   Calendar days=  79.000   Date=    2051/03/20 A.D. + 86400 secs
+
+ Timestep=  897360   Elapsed days= 18695.000   Calendar days=  80.000   Date=    2051/03/21 A.D. + 86400 secs
+
+ Timestep=  897408   Elapsed days= 18696.000   Calendar days=  81.000   Date=    2051/03/22 A.D. + 86400 secs
+
+ Timestep=  897456   Elapsed days= 18697.000   Calendar days=  82.000   Date=    2051/03/23 A.D. + 86400 secs
+
+ Timestep=  897504   Elapsed days= 18698.000   Calendar days=  83.000   Date=    2051/03/24 A.D. + 86400 secs
+
+ Timestep=  897552   Elapsed days= 18699.000   Calendar days=  84.000   Date=    2051/03/25 A.D. + 86400 secs
+
+ Timestep=  897600   Elapsed days= 18700.000   Calendar days=  85.000   Date=    2051/03/26 A.D. + 86400 secs
+
+ Timestep=  897648   Elapsed days= 18701.000   Calendar days=  86.000   Date=    2051/03/27 A.D. + 86400 secs
+
+ Timestep=  897696   Elapsed days= 18702.000   Calendar days=  87.000   Date=    2051/03/28 A.D. + 86400 secs
+
+ Timestep=  897744   Elapsed days= 18703.000   Calendar days=  88.000   Date=    2051/03/29 A.D. + 86400 secs
+
+ Timestep=  897792   Elapsed days= 18704.000   Calendar days=  89.000   Date=    2051/03/30 A.D. + 86400 secs
+
+ ----------------------------------------------
+ ****** LSX HISTORY FILE OUTPUT (NetCDF) ******
+ ----------------------------------------------
+ timestep                          =     897840
+ calendar days                     =     90.000
+ elapsed days                      =  18705.000
+ lsx history file                  = ./PRES052LSX.nc
+ lsx history writes                =          3
+ ----------------------------------------------
+ 
+
+ Timestep=  897840   Elapsed days= 18705.000   Calendar days=  90.000   Date=    2051/03/31 A.D. + 86400 secs
+
+ ----------------------------------------------
+ ***** AGCM HISTORY FILE OUTPUT (NetCDF) ******
+ ----------------------------------------------
+ timestep                          =     897840
+ calendar days                     =     90.000
+ elapsed days                      =  18705.000
+ agcm history file                 = ./PRES052.nc
+ agcm history writes               =          3
+ ----------------------------------------------
+ 
+
+ ----------------------------------------------
+ ************* RESTART FILE OUTPUT ************
+ ----------------------------------------------
+ timestep                          =     897840
+ calendar days                     =     90.000
+ elapsed days                      =  18705.000
+ restart file                      = ./PRES052RES      
+ restart file version number       =       3.10
+ filename list #                   =         52
+ filename list # incremented (T/F) =          F
+ ----------------------------------------------
+ secondary copy                    = ./nsrepres        
+ ----------------------------------------------
+ 
+
+ Timestep=  897888   Elapsed days= 18706.000   Calendar days=  91.000   Date=    2051/04/01 A.D. + 86400 secs
+
+ Timestep=  897936   Elapsed days= 18707.000   Calendar days=  92.000   Date=    2051/04/02 A.D. + 86400 secs
+
+ Timestep=  897984   Elapsed days= 18708.000   Calendar days=  93.000   Date=    2051/04/03 A.D. + 86400 secs
+
+ Timestep=  898032   Elapsed days= 18709.000   Calendar days=  94.000   Date=    2051/04/04 A.D. + 86400 secs
+
+ Timestep=  898080   Elapsed days= 18710.000   Calendar days=  95.000   Date=    2051/04/05 A.D. + 86400 secs
+
+ Timestep=  898128   Elapsed days= 18711.000   Calendar days=  96.000   Date=    2051/04/06 A.D. + 86400 secs
+
+ Timestep=  898176   Elapsed days= 18712.000   Calendar days=  97.000   Date=    2051/04/07 A.D. + 86400 secs
+
+ Timestep=  898224   Elapsed days= 18713.000   Calendar days=  98.000   Date=    2051/04/08 A.D. + 86400 secs
+
+ Timestep=  898272   Elapsed days= 18714.000   Calendar days=  99.000   Date=    2051/04/09 A.D. + 86400 secs
+
+ Timestep=  898320   Elapsed days= 18715.000   Calendar days= 100.000   Date=    2051/04/10 A.D. + 86400 secs
+
+ Timestep=  898368   Elapsed days= 18716.000   Calendar days= 101.000   Date=    2051/04/11 A.D. + 86400 secs
+
+ Timestep=  898416   Elapsed days= 18717.000   Calendar days= 102.000   Date=    2051/04/12 A.D. + 86400 secs
+
+ Timestep=  898464   Elapsed days= 18718.000   Calendar days= 103.000   Date=    2051/04/13 A.D. + 86400 secs
+
+ Timestep=  898512   Elapsed days= 18719.000   Calendar days= 104.000   Date=    2051/04/14 A.D. + 86400 secs
+
+ Timestep=  898560   Elapsed days= 18720.000   Calendar days= 105.000   Date=    2051/04/15 A.D. + 86400 secs
+
+ Timestep=  898608   Elapsed days= 18721.000   Calendar days= 106.000   Date=    2051/04/16 A.D. + 86400 secs
+
+ Timestep=  898656   Elapsed days= 18722.000   Calendar days= 107.000   Date=    2051/04/17 A.D. + 86400 secs
+
+ Timestep=  898704   Elapsed days= 18723.000   Calendar days= 108.000   Date=    2051/04/18 A.D. + 86400 secs
+
+ Timestep=  898752   Elapsed days= 18724.000   Calendar days= 109.000   Date=    2051/04/19 A.D. + 86400 secs
+
+ Timestep=  898800   Elapsed days= 18725.000   Calendar days= 110.000   Date=    2051/04/20 A.D. + 86400 secs
+
+ Timestep=  898848   Elapsed days= 18726.000   Calendar days= 111.000   Date=    2051/04/21 A.D. + 86400 secs
+
+ Timestep=  898896   Elapsed days= 18727.000   Calendar days= 112.000   Date=    2051/04/22 A.D. + 86400 secs
+
+ Timestep=  898944   Elapsed days= 18728.000   Calendar days= 113.000   Date=    2051/04/23 A.D. + 86400 secs
+
+ Timestep=  898992   Elapsed days= 18729.000   Calendar days= 114.000   Date=    2051/04/24 A.D. + 86400 secs
+
+ Timestep=  899040   Elapsed days= 18730.000   Calendar days= 115.000   Date=    2051/04/25 A.D. + 86400 secs
+
+ Timestep=  899088   Elapsed days= 18731.000   Calendar days= 116.000   Date=    2051/04/26 A.D. + 86400 secs

@@ -1,0 +1,229 @@
+             ======================================================
+             Major Changes between LSX version 1.02 and version 2.0
+             ======================================================
+
+Some of the information refers to using LSX in conjunction with the 
+GENESIS GCM...for standalone LSX applications, this can be ignored.
+
+----------------------------------
+Land-Surface-Transfer Model (LSX):
+----------------------------------
+
+* For each surface-grid box (2x2 degrees in the standard resolution),
+  a fractional amount of open water is specified (in data file FWATER).
+  There is a separate calculation in LSX for the surface <-> AGCM fluxes for
+  the open water fraction and the land fraction, and the two sets of fluxes
+  are weighted together into the effective flux contribution for each 2x2 cell.
+
+  The open water is a well-mixed column with prognostic temperature, just as
+  for the open-ocean slab model. Floating ice can form if the column reaches the
+  freezing point, and snow can accumulate on the ice, modelled by the same code
+  as for thermodynamic sea ice. The water depth can have one of two values 
+  representing "coastal ocean/deep lakes" or "shallow lakes", with default
+  values of 50 m and 5 m respectively; (the distinction is encoded by using
+  positive or negative percent values in the FWATER file).
+
+* Data files for land-ocean-icesheet mask (SURFTYP), topography (TOPOG) and
+  open water fraction (FWATER) have been regenerated from better sources,
+  using the 10 minute U.S Navy FNOC global elevation dataset (Cuming and 
+  Hawkins, 1981, Report M11, FNOC, Monterey, CA; Kineman, 1985, NOAA/NGDC,
+  Boulder, CO), and Cogley's 1x1 degree datasets for icesheets (Cogley, 1991,
+  Note 91-1, Trent University, Peterborough, Ontario).
+
+* Vegetation can be prescribed in three different ways in version 2.0,
+  described here in order of increasing complexity.
+
+  The old version 1.02 prescription in terms of Dorman and Sellers biomes
+  is still available as an option. A sub-option now exists to 
+  specify one Dorman-Sellers biome as a single vegetation type for
+  the whole world (using Namelist parameter DSBIOME), in which case no 
+  vegetation data input file is required.
+
+  Another option uses a new method of categorizing vegetation developed by
+  Jon Foley and his group at the University of Wisconsin. Starting from
+  Matthews (1985) present-day dataset, vegetation is described by four
+  independent measures:
+    (i)   cover type (forest, woodland, savanna, shrubland, grassland, tundra,
+                      desert),
+    (ii)  climate zone (tropical, temperate, boreal/subpolar),
+    (iii) phenology (evergreen, deciduous), and
+    (iv)  C3 or C4 understory.
+  These measures are designed to capture climatically important distinctions
+  rather than biome or species differences. An on-line algorithm uses the
+  4-digit code, some model climate input and the calendar date to compute the
+  phenology and other physical attributes of the canopy once each day. The
+  climate input consists of 2-week running-mean surface-air temperature
+  and an instantaneous soil-moisture stress term, so there is some interactive
+  feedback between the model climate and the phenology (but not the vegetation
+  distribution). A sub-option exists to specify one 4-digit vegetation code for
+  the whole world (using Namelist parameter WISCVEG), in which case no 
+  vegetation data input file is required.
+
+  Another vegetation option uses present-day off-line results of a predictive
+  vegetation model (EVE) developed by Jon Bergengren at NCAR. These results are
+  essentially global distributions of ~110 life forms predicted by EVE driven
+  by present-day observed climatology, and for each grid cell the net physical
+  attributes of the vegetation community are determined and passed to LSX. 
+  The required information is provided in a separate EVE data/restart file.
+  To reduce the size of this file, the seasonal cycles of leaf area index
+  (phenology) predicted by EVE are not stored but are re-computed on-line
+  using a part of the EVE code linked to GENESIS. Since the previously computed 
+  distributions and the phenology are driven by observed climate, there is
+  no interactive climate-vegetation feedback in this method.
+
+* A stochastic precipitation term is included to account for the observed
+  statistics of precipitation time series at a point compared to large-scale
+  averages. A random term is added to the precipitation at each 2x2 surface
+  cell (linearly interpolated from the AGCM grid) at each timestep, with an
+  exponential distribution based on observations, with the same mean as the
+  large-scale precipitation, and with implicit fractional areas with non-zero
+  precipitation of 0.3 and 0.7 for convective and stratiform precipitation
+  respectively (Thomas and Henderson-Sellers, 1991, J.Climate, 4, 898-910;
+  Eltahir and Bras, 1993, J.Climate, 6, 639-644).
+
+* The calculation of PAR (Photosynthetically Active Radiation) for the
+  stomatal resistance parameterization has been improved to account for
+  two levels of radiation on the sunlit and shaded fractions of the canopy.
+
+
+-----------
+Soil Model:
+-----------
+
+* Soil hydrologic properties (saturated matric potential and hydraulic
+  conductivity, porosity, "B") and wet surface albedo are determined
+  from soil sand-silt-clay ratios. The latter are in turn prescribed from a 
+  global soil-texture dataset provided by Robin Webb (Webb and Rosenzweig,
+  1993, Glob.Biogeochem.Cycles, 7, 97-108), which includes variations with
+  depth. The soil hydraulic parameters are determined from the texture using 
+  empirical formulae in Cosby et al.(1984, Water Res.Res., 20, 682-690).
+
+  An option now exists to specify a single sand-silt-clay fraction for all soil
+  layers globally (using the Namelist parameter SOILTEX), in which case no
+  soil texture data input files are required.
+
+* A ponding reservoir ("puddles") has been added at the soil surface,
+  with a maximum capacity of 10 Kg/m2 of water, that acts mainly as a buffer 
+  between infiltration excess and surface runoff (Miller, 1977, Water at the
+  Surface of the Earth, Int.Geophys.Series, vol.21, Academic Press, pg.189).
+  Prognostic amounts of liquid and frozen ponded H2O are tracked separately for
+  each grid point, and the puddles can evaporate, infiltrate or contribute to
+  runoff.
+
+* The basic effect of vertical pressure gradients in saturated soils
+  is included to allow the model to potentially form water tables
+  or "wetlands" (saturated surface layers). This is done implicitly by
+  "squeezing" any excess soil moisture (> 100%) to the next highest layer or
+  out of the top of the soil after each timestep.
+
+* The bottom boundary condition for soil moisture at 4.25 m depth is now
+  10% permeability, compared to 100% permeability in version 1.02. This value
+  has been chosen to yield global bottom drainage and surface runoff rates in
+  better agreement with (quite uncertain) observed estimates (Probst and Sigha,
+  1989, C.R.Acad.Sci.Paris, 309, II, 357-363; Zekster and Loaiciga, 1993,
+  J.Hydrol., 144, 405-427).
+
+-------------------------
+Snow and Icesheet Models:
+-------------------------
+
+* The function giving snow fraction vs. total snow mass now assumes a linear
+  relationship between fraction and depth below 100% cover (Donald
+  et al., 1995, Water Res.Res., 31, 995-1009), as oppposed to a constant depth
+  below 100% cover as in version 1.02. The depth at which the cover reaches
+  100% is set equal to [geometric height * fractional cover] of the lower
+  vegetation canopy, with lower and upper bounds of 20 cm and 70 cm.
+
+* An *aposteriori* correction is applied in our post-processing codes
+  that calculate the net mass balance on icesheets. This crudely accounts
+  for the refreezing of a certain fraction of surface snow melt, that percolates
+  downwards to warm and saturate the underlying snow before becoming mobile
+  enough to flow off the icesheet (Pfeffer et al., 1991, J.Geophys.Res., 96,
+  22117-22124). We emphasize that this is applied in our post-processing codes
+  and not in the GENESIS physics.
+
+* A correction for the difference between spectrally truncated AGCM topography
+  and untruncated surface-grid topography can optionally be applied to the 
+  values of AGCM meteorological variables passed to LSX at each time step. 
+  In general the untruncated topography is higher in the center of small-scale
+  features such as Greenland, and the main motivation is to improve the 
+  simulated snow and ice melt rates on icesheets. The lowest-level AGCM air
+  temperature is simply reduced assuming a constant lapse rate, the AGCM 
+  downward infrared radiation is reduced based on an empirical formula, the
+  surface pressure is reduced hydrostatically and the specific humidity is 
+  reduced assuming constant relative humidity. Options are to apply this
+  correction (i) everywhere, (ii) over all icesheets points, (iii) just over
+  Greenland and Antarctica, or (iv) not at all. We emphasize that this only
+  affects meteorological values passed to LSX, and the AGCM fields themselves
+  are not changed.
+
+* The albedo of bare melting ice on icesheets has been raised slightly beyond
+  the envelope of observational estimates, in order to achieve good estimates
+  of the present-day net annual mass balance of the Greenland ice sheet. The
+  melting ice albedos for the two model wavebands (visible and near-IR) are
+  0.85 and 0.65 respectively, although we may reduce them in the near future.
+  (These ramp up to 0.90 and 0.70 for ice-surface temperatures of -5 deg C
+  and below).
+
+
+--------------
+Sea Ice Model:
+--------------
+
+* The thermodynamic sea-ice code and arrays are no longer mingled with the
+  soil model, and now form a distinct thermodynamic sea-ice module. 
+  Consequently the number of sea-ice layers can be different from the number
+  of soil layers, and in version 2.0 we use 3 sea-ice layers (an upper layer
+  of 5 cm and equispaced adaptive middle and lower layers).
+
+* The algorithm for iterating the sea-ice dynamics to the Flato-Hibler
+  solution has been improved and vectorizes much more efficiently.
+
+* The annual mean ocean currents prescribed for sea-ice dynamics are obtained
+  from a 5-year run of a 2x2 degree ocean GCM (Esther Brady, personal
+  communication), which seems to have alleviated the spiky nature of the
+  sea-ice fields near the North Pole in version 1.02.
+
+* The surface winds used for sea-ice dynamics come from the AGCM itself,
+  and not from prescribed monthly climatological winds as in version 1.02.
+
+* For prescribed SSTs and sea ice, the ice fractions are now:
+      Northern Hemisphere: linear vs. latitude, from 0.998 at 90 deg N
+                           to 0.92 at and below 70 deg N.
+      Southern Hemisphere: 0.90.
+
+  For the slab ocean and sea-ice model the ice fraction is predicted,
+  but with imposed maxima of 0.998 in the Northern Hemisphere and 0.94 in the
+  Southern Hemisphere.
+
+* The implicit statistical distribution of ice fraction versus thickness
+  used to relate reductions in mean thickness to changes in mean ice fraction
+  is now triangular between 0 and 2*mean_thickness. (In version 1.02 it was
+  uniform between 0 and 2*mean_thickness). 
+
+
+-----------------------------
+Ocean Slab Mixed-Layer Model:
+-----------------------------
+
+* The neutral drag coefficient used in the calculation of ocean surface 
+  momentum flux now depends on wind speed (Large and Pond, 1981, J.Phys.
+  Oceanogr., 11, 324-336; Trenberth et al., 1982, NCAR Tech.Note TN-338, pg.8).
+  The drag coefficient is increased slightly to allow for some scatter of wind
+  speeds about the model mean. The roughness length for surface fluxes of heat
+  and water vapor has been changed to .0001 m (which is the main factor in
+  correcting the overestimate of global precipitation in version 1.02).
+
+* Oceanic heat transport is treated differently in version 2.0. Instead of
+  prescribing the convergence (W/m2) as a function of latitude as in version
+  1.02, we fitted the present-day observed zonal mean transport as a linear
+  function of the latitudinal SST gradient, but with the diffusion coefficient
+  depending on the zonal fraction of land vs. ocean, and on latitude itself.
+  Those coefficients are used to calculate the 2-D linear diffusion of heat
+  vs. SST at each model timestep. Convergence under 100% sea ice is set to
+  0 (zero!) in the Northern Hemisphere, and to 6 W m-2 in the Southern
+  Hemisphere. Also the enhanced winter flux convergence in the Norwegian Sea
+  rectangular region is still as in version 1.02 (but can be turned off by
+  QNORWEG = 0).
+
+--------------------------------------------------------------------------------

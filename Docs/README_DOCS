@@ -1,0 +1,41 @@
+README_DOCS
+-----------
+
+The Docs subdirectory contains various GENESIS GCM documentation files.
+
+The last full User's Guide was written in 1995 for version 2.0, and updates 
+since then are described in release notes for versions 2.0.a, 2.1 and 3.
+Nb: Some of the changes described in the later release notes are quite 
+   significant, concerning input parameters, output formats, and model physics. 
+
+A set of old GENESIS GCM web pages (circa 1996) are archived at 
+http://www.essc.psu.edu/genesis/.
+
+  Filename                  Description
+  --------                  -----------
+
+  userdoc_2.0.pdf           GENESIS User's Guide version 2.0 
+  userdoc_contents_2.0.pdf  table of contents for User's Guide 
+
+  sample.jobscript          sample "deb..." job script 
+                            (see User's Guide pg. 4, referred to as Fig. 1)
+  sample.namelist           sample Namelist input section of interm file
+                            (see User's Guide pg. 6, referred to as Fig. 2)
+  sample.fort.6             sample standard ouptput file 
+                            (see User's Guide section 6.a and Appendix D)
+  appendix_errmsg           list of program error messages
+                            (see User's Guide appendix E)
+
+
+  release_notes_2.0         release notes for version 2.0, 7/95.
+                            (redundant, described in v2.0 User's Guide)
+  release_notes_2.0_lsx     release notes for version 2.0, surface module, 7/95.
+                            (redundant, described in v2.0 User's Guide)
+  release_notes_2.0.a       release notes for version 2.0.a, 10/5.
+  release_notes_2.1         release notes for version 2.1, 8/00.
+  release_notes_3.0         release notes for version 3.0, 4/07.
+
+  genrefs                   reference list of GENESIS-related papers
+
+
+David Pollard (pollard@essc.psu.edu)

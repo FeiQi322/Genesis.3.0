@@ -1,0 +1,1754 @@
+c -- $Id: soil.F,v 1.2 2001/07/03 21:29:30 bill Exp $
+c -- $Source: /usr/local/portgcm/src/cvsroot/genesis.2.2/Lsx/soil.F,v $
+c -- $Name:  $
+
+c------
+c soil
+c------
+c
+c----------------------------------------------------------------------
+c
+      SUBROUTINE INISOD (SHOWMAPS)
+c
+c        Does initialization for soil/icesheet database.
+c
+c        SHOWMAPS = .TRUE. to print 2-D maps of prescribed fields
+c
+#include <compar.h>
+#include <comgrd.h>
+#ifdef gcm
+#include <COMLUN.h>
+#endif
+#include <commapl.h>
+#include <commugxy.h>
+#include <comsoi.h>
+#include <comsoixy.h>
+      LOGICAL SHOWMAPS
+      CHARACTER CLAB*8, CTIT*100
+      DIMENSION HSOD3(3), HSOD6(6), HSOD12(12)
+ 
+c     Soil-layer thicknesses, for hsod in comsoi (not depths) (m):
+      data hsod3
+     *  / .05, .50, 1.5 /
+      data hsod6
+     *  / .05, .10, .20, .40,  1., 2.5 /
+      data hsod12
+     *  / .02, .03, .05, .07, .10, .15, .20, .30, .50, .75, 1., 1. /
+
+      if (nsoilay.eq.3) then
+        call scopy (nsoilay, hsod3, 1, hsod, 1)
+      else if (nsoilay.eq.6) then
+        call scopy (nsoilay, hsod6, 1, hsod, 1)
+      else if (nsoilay.eq.12) then
+        call scopy (nsoilay, hsod12, 1, hsod, 1)
+      else 
+        write(ioterm2,'(/a,i6)')
+     *    '*** Error (inisod) : unknown nsoilay (not 3,6,12): ', nsoilay
+        call endrun (-1)
+      endif
+ 
+c        Read soil-texture data input files (one per soil layer),
+c        put into array ITEXXY
+ 
+      DO 100 K=1,NSOILAY
+ 
+        WRITE (CLAB,"('SOIT',I2.2)") K
+        WRITE (CTIT,"('soil texture (sand*100+clay), layer',I3)") K
+ 
+        IF (SOILTEX.EQ.0) THEN
+ 
+c        If hydrol, instead use veghyd array (in commugxy, set in 
+c        inisurf passed from hydrol code). 
+
+#ifdef hydmodel
+          do jj=1,nlat
+            do ii=1,nlon
+              workl(ii,jj) = isoilhyd(ii,jj,k)
+            enddo
+          enddo
+#else
+
+#ifdef gcm
+          CALL FINDIU (IUSOIT(K), LOC)
+          WRITE(IOTERM2,102) LOCNAME(LOC)(1:LENCHR(LOCNAME(LOC)))
+  102     FORMAT(/' Reading soil-texture data file'/4X,A)
+          CALL OPENF (IUSOIT(K), LOCNAME(LOC), ' ', 0, 0)
+          CALL READDATA (IUSOIT(K), WORKL, NLON,NLAT, CLAB, 2, 1)
+          CALL CLOSEF(IUSOIT(K))
+#else
+          CALL READDATA (IUDUM    , WORKL, NLON,NLAT, CLAB, 2, 1)
+#endif
+#endif
+          DO 110 JJ=1,NLAT
+            DO 112 JI=1,NLON
+              ITEXXY(JI,JJ,K) = NINT(WORKL(JI,JJ))
+c             If special values don't match LMASK, LMASK overrides
+              IF (LMASKXY(JI,JJ).EQ.2) ITEXXY(JI,JJ,K) = -1   !icesheet
+              IF (LMASKXY(JI,JJ).EQ.3) ITEXXY(JI,JJ,K) = 0    !ocean
+c             Arbitrary value (33% sand,silt and clay) for LMASK's
+c             soil points with non-soil texture value
+              IF ( LMASKXY(JI,JJ).EQ.1 .AND.
+     *             (ITEXXY(JI,JJ,K).EQ.0 .OR. ITEXXY(JI,JJ,K).EQ.-1) )
+     *           ITEXXY(JI,JJ,K) = 3333
+  112       CONTINUE
+  110     CONTINUE
+ 
+        ELSE
+ 
+c         Namelist SOILTEX entered for global uniform single type:
+          IF (K.EQ.1) WRITE(IOTERM2,120) SOILTEX
+  120     FORMAT(/' *** Using single soil texture value',
+     *            i8,' for all soil layers')
+          IZSAND = SOILTEX/10000
+          IZSILT = (SOILTEX - 10000*IZSAND) / 100
+          IZCLAY =  SOILTEX - 10000*IZSAND - 100*IZSILT
+          DO 122 JJ=1,NLAT
+            DO 124 JI=1,NLON
+              ITEXXY(JI,JJ,K) = 100*IZSAND + IZCLAY
+              IF (LMASKXY(JI,JJ).EQ.2) ITEXXY(JI,JJ,K) = -1   !icesheet
+              IF (LMASKXY(JI,JJ).EQ.3) ITEXXY(JI,JJ,K) = 0    !ocean
+  124       CONTINUE
+  122     CONTINUE
+ 
+        ENDIF
+ 
+c          Impose namelist textures DSSOI[S,N] in specified rectangles
+c          if requested (also see DSVEG[S,N] in vegdat_dorm)
+ 
+        if (dssois.ne.0 .or. dssoin.ne.0) then
+          do jj=1,nlat
+            zlat = alat(jj)*180./pi
+            do ji=1,nlon
+              zlon = alon(ji)*180./pi
+              if (zlon.gt.180.) zlon = zlon - 360.
+              if      ( zlat.ge.dslats(1) .and. zlat.le.dslats(2) .and.
+     *                  zlon.ge.dslons(1) .and. zlon.le.dslons(2) ) then
+c               southern hemisphere rectangle:
+                if (lmaskxy(ji,jj).eq.1 .and. dssois.ne.0) then
+                  izsand = dssois/10000
+                  izsilt = (dssois - 10000*izsand) / 100
+                  izclay =  dssois - 10000*izsand - 100*izsilt
+                  itexxy(ji,jj,k) = 100*izsand + izclay
+                endif
+              endif
+              if ( zlat.ge.dslatn(1) .and. zlat.le.dslatn(2) .and.
+     *             zlon.ge.dslonn(1) .and. zlon.le.dslonn(2) ) then
+c               northern hemisphere rectangle:
+                if (lmaskxy(ji,jj).eq.1 .and. dssoin.ne.0) then
+                  izsand = dssoin/10000
+                  izsilt = (dssoin - 10000*izsand) / 100
+                  izclay =  dssoin - 10000*izsand - 100*izsilt
+                  itexxy(ji,jj,k) = 100*izsand + izclay
+                endif
+              endif
+            enddo
+          enddo
+        endif
+ 
+        IF (SHOWMAPS) CALL MAPOUT (IOTERM2, ITEXXY(1,1,K), NLON, NLAT,
+     *                             ALON, ALAT, 0, CTIT)
+ 
+  100 CONTINUE
+ 
+ 
+c        Set global maps of soil or landice roughness lengths,
+c        (saturated-)soil or landice surface albedos (vis and nir)
+ 
+      DO 200 JJ=1,NLAT
+        DO 202 JI=1,NLON
+ 
+c------------------------
+c         Soil (not peat):
+c------------------------
+          IF (ITEXXY(JI,JJ,1).GE.1) THEN
+ 
+            Z0SOIXY(JI,JJ)  = .005
+ 
+c           Unpack texture from ITEXXY (=100*sand% + clay%, 1<=%<=99):
+            MSAND = ITEXXY(JI,JJ,1)/100
+            MCLAY = ITEXXY(JI,JJ,1) - 100*MSAND
+            MSAND = MAX (1, MIN (99, MSAND))
+            MCLAY = MAX (1, MIN (99, MCLAY))
+            ZSAND = .01*MSAND
+            ZCLAY = .01*MCLAY
+            ZSILT = .01*(100-MSAND-MCLAY)
+ 
+c           From BATS Table 3.II assuming albedo depends on texture:
+            ALBSAVXY(JI,JJ) = ZSAND*.120 + ZSILT*.085 + ZCLAY*.050
+            ALBSANXY(JI,JJ) = 2.*ALBSAVXY(JI,JJ)
+ 
+c-------------
+c         Peat:
+c-------------
+          ELSE IF (ITEXXY(JI,JJ,1).EQ.-2) THEN
+ 
+            Z0SOIXY(JI,JJ) = .005
+            ALBSAVXY(JI,JJ) = .050                       ! peat is dark
+            ALBSANXY(JI,JJ) = 2.*ALBSAVXY(JI,JJ)
+ 
+c------------------
+c         Land ice:
+c------------------
+          ELSE
+ 
+#ifdef icedrive
+            Z0SOIXY(JI,JJ) = .0010
+#else
+            Z0SOIXY(JI,JJ) = .0015
+#endif
+            ALBSAVXY(JI,JJ) = 0.          ! arbitrary value, never used
+            ALBSANXY(JI,JJ) = 0.
+ 
+          ENDIF
+ 
+  202   CONTINUE
+  200 CONTINUE
+ 
+c        Set up look-up table (HYDVAL, in comsoi) of hydraulic
+c        quantities for a uniform mesh of sand/clay values
+ 
+      CALL CLAPHORN (HYDVAL, NTEX, NHYD)
+ 
+      RETURN
+      END
+c
+c----------------------------------------------------------------------
+c
+      SUBROUTINE INISOI (YTSIN, NSREST, NSREST_ISOT)
+c
+c        Does initialization for soil/icesheet model.
+c
+c        YTSIN    = ccm surface temperature field for initialization
+c        NSREST   = -1 for cold start, 0 for initial start from a
+c                   restart file, 1 for true restart
+c
+#include <compar.h>
+#include <comfud.h>
+#include <comgrd.h>
+#ifdef isotrac
+#ifdef gcm
+#include <COMLUN.h>
+#endif
+#include <comicexy.h>
+#endif
+#include <commudxy.h>
+#include <commugxy.h>
+#include <comocn.h>
+#include <comocnxy.h>
+#include <comsoi.h>
+#include <comsoixy.h>
+#include <comvegxy.h>
+ 
+      DIMENSION YTSIN(NLONG,NLATG)
+ 
+c----------------------------------
+ 
+c        Interpolate initialization temperature field to lsx grid
+ 
+      CALL GTOL (YTSIN, WORKL, 0)
+ 
+c=======================
+      DO 100 JJ=1,NLAT
+        DO 102 JI=1,NLON
+c=======================
+ 
+c         Initialize soil variables for land points, if cold start
+c         (NSREST=-1). If user has changed land-ocean mask, TSOIXY will
+c         start at TMELT and WSOIXY,WISOIXY will start at 0.
+ 
+c>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+          IF (LMASKXY(JI,JJ).EQ.1) THEN
+c>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ 
+c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            IF (NSREST.EQ.-1) THEN
+c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+              DO 110 K=1,NSOILAY
+                TSOIXY(JI,JJ,K) = WORKL(JI,JJ)
+#ifdef gcm
+                WSOIXY(JI,JJ,K) = wsoi_init
+                WISOIXY(JI,JJ,K) = 0.
+#else
+                WSOIXY(JI,JJ,K) = xwsoi
+                WISOIXY(JI,JJ,K) = xwisoi
+#endif
+ 
+c               If soil layers are below freezing, replace liquid
+c               content with ice content, otherwise the sfc temp would
+c               jump to(wards) TMELT in the first soil timestep
+c               (and vice-versa if soil layers are above freezing)
+                IF (TSOIXY(JI,JJ,K).LT.TMELT) THEN
+                  WISOIXY(JI,JJ,K)=MAX(WSOIXY(JI,JJ,K),WISOIXY(JI,JJ,K))
+                  WSOIXY(JI,JJ,K) = 0.
+                ELSE IF (TSOIXY(JI,JJ,K).GT.TMELT) THEN
+                  WSOIXY(JI,JJ,K) =MAX(WSOIXY(JI,JJ,K),WISOIXY(JI,JJ,K))
+                  WISOIXY(JI,JJ,K)= 0.
+                ENDIF
+                WSOIXY(JI,JJ,K)  = MIN (1., MAX (0., WSOIXY(JI,JJ,K)))
+                WISOIXY(JI,JJ,K) = MIN (1., MAX (0., WISOIXY(JI,JJ,K)))
+
+#ifdef hydmodel
+c               set at-depth soil moistures for hydrol categories
+                icat = mod(ji-1,ncateghyd) + 1 
+c               if (k.ge.nlayhyd(icat))  then
+                if (.true.)  then       ! initialize all layers to categ
+                  if (tsoixy(ji,jj,k).lt.tmelt) then
+                    wisoixy(ji,jj,k) = thetahyd(icat)
+                    wsoixy(ji,jj,k) = 0.
+                  else
+                    wisoixy(ji,jj,k) = 0.
+                    wsoixy(ji,jj,k) = thetahyd(icat)
+                  endif
+                endif
+#endif
+  110         CONTINUE
+
+              WPUDXY(JI,JJ) = 0.
+              WIPUDXY(JI,JJ) = 0.
+              TGXY(JI,JJ) = TSOIXY(JI,JJ,1)
+c~~~~~~~~~~~~~~~~
+            ENDIF
+c~~~~~~~~~~~~~~~~
+
+c>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+          ELSE IF (LMASKXY(JI,JJ).EQ.2) THEN
+c>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ 
+c            Initialize soil variables for icesheet points. 
+c            Similar comments as for land.
+ 
+            DO 120 K=1,NSOILAY
+              IF (NSREST.EQ.-1) TSOIXY(JI,JJ,K) = WORKL(JI,JJ)
+              TSOIXY(JI,JJ,K) = MIN (TMELT, TSOIXY(JI,JJ,K))
+              WSOIXY(JI,JJ,K) = 0.
+              WISOIXY(JI,JJ,K) = 0.
+  120       CONTINUE
+            WPUDXY(JI,JJ) = 0.
+            WIPUDXY(JI,JJ) = 0.
+            IF (NSREST.EQ.-1) TGXY(JI,JJ) = TSOIXY(JI,JJ,1)
+ 
+c>>>>>>>>>>>>>
+          ELSE
+c>>>>>>>>>>>>>
+
+c              Zero for ocean/sea-ice points
+ 
+            DO 130 K=1,NSOILAY
+              TSOIXY(JI,JJ,K) = TMELT
+              WSOIXY(JI,JJ,K) = 0.
+              WISOIXY(JI,JJ,K) = 0.
+  130       CONTINUE
+            WPUDXY(JI,JJ) = 0.
+            WIPUDXY(JI,JJ) = 0.
+            TGXY(JI,JJ) = TMELT
+ 
+c>>>>>>>>>>>>>>
+          ENDIF
+c>>>>>>>>>>>>>>
+
+c+++++++++++++
+#ifdef isotrac
+c+++++++++++++
+c     Initialization for isotope's of lakes, soil and sea-ice reservoirs
+
+c------------------------------------
+          if (nsrest_isot.eq.-1) then
+c------------------------------------
+            t_i = workl(ji,jj)-tmelt
+            d_o = -12.93+0.4898*t_i-0.005039*t_i*t_i
+            r_o = (1e-3* d_o        +1.)*smoj_o
+            r_h = (1e-3*(8.*d_o+10.)+1.)*smoj_h
+
+            if (hrst_i.gt.0.) then
+              hrst_def = hrst_i     ! namelist, if requested
+            else
+              hrst_def = 10.
+            endif
+c lakes:
+            if (mocean_i(ji,jj).eq.8 .or. mocean_i(ji,jj).eq.9) then
+              hl_i(ji,jj) = hrst_def
+              ro_o(ji,jj) = r_o
+              ro_h(ji,jj) = r_h
+            else if (fwaterxy(ji,jj).eq.0.) then
+              hl_i(ji,jj) = 0.
+              ro_o(ji,jj) = 0.
+              ro_h(ji,jj) = 0.
+            else
+              hl_i(ji,jj) = 1.
+            endif
+c soil or icesheet:
+            if (fwaterxy(ji,jj).lt.1.) then
+              hct_i(ji,jj)= hrst_def
+              rct_o(ji,jj)= r_o
+              rct_h(ji,jj)= r_h
+              hcb_i(ji,jj)= hrst_def
+              rcb_o(ji,jj)= r_o
+              rcb_h(ji,jj)= r_h
+            else
+              hct_i(ji,jj)= 0.
+              rct_o(ji,jj)= 0.
+              rct_h(ji,jj)= 0.
+              hcb_i(ji,jj)= 0.
+              rcb_o(ji,jj)= 0.
+              rcb_h(ji,jj)= 0.
+            endif
+c sea ice:
+            if (fwaterxy(ji,jj).gt.0.) then
+              hi_i(ji,jj) = hrst_def
+              ri_o(ji,jj) = r_o
+              ri_h(ji,jj) = r_h
+            else
+              hi_i(ji,jj) = 0.
+              ri_o(ji,jj) = 0.
+              ri_h(ji,jj) = 0.
+            endif
+
+c--------------
+          endif
+c--------------
+c+++++
+#endif
+c+++++
+ 
+c===============
+  102   CONTINUE
+  100 CONTINUE
+c===============
+  
+#ifndef gcm
+c     Initial conditions to investigate blowup/wobble with special
+c     setting of A() in SOILH2O (use DTSOIL=15 min, RAIN=10 mm/day)
+c     wsoixy(1,1,1) = .763
+c     wsoixy(1,1,2) = 1.104
+c     wsoixy(1,1,3) = 1.006
+c     wsoixy(1,1,4) = 1.069
+c     wsoixy(1,1,5) = 0.
+c     wsoixy(1,1,6) = 0.
+c     wisoixy(1,1,1) = 0.
+c     wisoixy(1,1,2) = 0.
+c     wisoixy(1,1,3) = 0.
+c     wisoixy(1,1,4) = .800
+c     wisoixy(1,1,5) = .983
+c     wisoixy(1,1,6) = .983
+c     tsoixy(1,1,1) = tmelt+5.42
+c     tsoixy(1,1,2) = tmelt+5.69
+c     tsoixy(1,1,3) = tmelt+3.24
+c     tsoixy(1,1,4) = tmelt
+c     tsoixy(1,1,5) = tmelt-7.5
+c     tsoixy(1,1,6) = tmelt-7.5
+#endif
+ 
+      RETURN
+      END
+c
+c----------------------------------------------------------------------
+c
+      SUBROUTINE SETSOI
+c
+c        Sets diagnostic or prescribed soil quantities needed
+c        by lsx for current 1-D land strip, returned in commus.
+c
+#include <compar.h>
+#include <comgrd.h>
+#include <commud.h>
+#include <commug.h>
+#include <commus.h>
+#include <comocn.h>
+#include <comsoi.h>
+#include <comveg.h>
+ 
+#include <comsat.h>
+ 
+ 
+c        Set soil layer quantities for this strip.
+c        Nb: Use strip array hsoi(i,k) in case it varies with position
+c        in the future, but don't use "hsoixy" to save memory. So in
+c        places (vegdat,budlsx,histlsx) use hsod instead of "hsoixy".
+ 
+      DO 100 K=1,NSOILAY
+        DO 102 I=1,NPOI
+ 
+c------------------
+c         Not peat:
+c------------------
+ 
+          IF (ITEX(I,K).GE.1) THEN
+ 
+            HSOI(I,K) = HSOD(K)
+ 
+c              Unpack texture from ITEX (=100*sand% + clay%, 1<=%<=99):
+ 
+            MSAND = ITEX(I,K)/100
+            MCLAY = ITEX(I,K) - 100*MSAND
+ 
+            FSAND(I,K) = .01*MSAND
+            FCLAY(I,K) = .01*MCLAY
+            FSILT(I,K) = .01*(100-MSAND-MCLAY)
+ 
+c              Calculate indices into lookup table HYDVAL
+ 
+            ISAND = MAX (1, MIN (NTEX, INT(FSAND(I,K)*(NTEX-1) + 1.5)))
+            ICLAY = MAX (1, MIN (NTEX, INT(FCLAY(I,K)*(NTEX-1) + 1.5)))
+ 
+c              Set "B", saturated matric potential (m), porosity,
+c              saturated hydraulic conductivity (m s-1) from lookup
+c              table
+ 
+            BEX(I,K)     = HYDVAL(ISAND,ICLAY,1)
+            IBEX(I,K)    = NINT(BEX(I,K))
+            SUCTION(I,K) = HYDVAL(ISAND,ICLAY,2)
+            POROS(I,K)   = HYDVAL(ISAND,ICLAY,3)
+            HYDRAUL(I,K) = HYDVAL(ISAND,ICLAY,4)
+ 
+c              Derived quantities
+ 
+c           Wilting-point soil moisture:
+            SWILT(I,K) =
+cBats*          FSAND(I,K)*.095 + FSILT(I,K)*.355 + FCLAY(I,K)*.542
+     *          FSAND(I,K)*.100 + FSILT(I,K)*.200 + FCLAY(I,K)*.300
+ 
+c           Constant in soil water uptake rate param (Kg m-2 s-1)
+            UPCON(I) = 30./86400.  !  2.E-4
+ 
+c           Specific heat of soil material (J kg-1 K-1):
+            CSOI(I,K) =
+     *          FSAND(I,K)*800. + FSILT(I,K)*850. + FCLAY(I,K)*890.
+ 
+c           Density of soil material (without pores, not bulk) (kg m-3)
+            RHOSOI(I,K) = 2660.
+ 
+c           Thermal conductivity (W m-1 K-1):
+c           Based on c = c1**v1 * c2**v2 * c3**v3 * c4**v4 where c1,c2..
+c           are conductivities of soil grains, air, liquid and ice
+c           respectively, and v1,v2... are their volume fractions
+c           (so v1 = 1-p where p is the porosity, and v1+v2+v3+v4 = 1).
+c           Then condry = c1**(1-p) * c2**p  is the dry-soil
+c           conductivity, and c = condry * (c3/c2)**v3 * (c4/c2)**v4,
+c           where c2 = conductivity of air = .025 W m-1 K-1.
+c           However this formula agrees better with Williams+Smith
+c           Table 4 for wet (unfrozen) sand and clay if c2 is decreased
+c           to ~.010. (For peat in next section, ok if c2 = .025).
+c           Also see Lachenbruch etal,1982,JGR,87,9301 and refs therein.
+ 
+c           Modified in v2.0.a: dry conductivity is now the weighted
+c           sum of conductivities for pure dry sand, silt and clay,
+c           weighted by the respective ratios. The correction for
+c           moisture and ice is still as described above.
+ 
+            POWLIQ = POROS(I,K)*WSOI(I,K)*(1.-WISOI(I,K))
+            POWICE = POROS(I,K)*WISOI(I,K)
+            ZCONDRY = FSAND(I,K)*.30 + FSILT(I,K)*.265 + FCLAY(I,K)*.25
+            CONSOI(I,K) = ZCONDRY * ((0.56/.010)**POWLIQ)
+     *                            * ((2.24/.010)**POWICE)
+ 
+c           Or:
+c           BATS Tech Note, Eqn 14b: (sikrat = (d) in BATS Table 3.I)
+c           ZR = (1.-WISOI(I,K))*WSOI(I,K)*POROS(I,K)
+c           ZC = 1.E-7 * (2.9*ZR + .04) / ((1.-.6*ZR)*ZR + .09)
+c           SIKRAT = FSAND(I,K)*1.7 + FSILT(I,K)*1.0 + FCLAY(I,K)*0.7
+c           CONSOI(I,K)= ZC * SIKRAT * RHOSOI(I,K) * CSOI(I,K)
+ 
+c-------------------------
+c         Peat (histosols):
+c-------------------------
+ 
+          ELSE IF (ITEX(I,K).EQ.-2) THEN
+ 
+            HSOI(I,K) = HSOD(K)
+ 
+            FSAND(I,K) = .33  !  0.
+            FCLAY(I,K) = .33  !  0.
+            FSILT(I,K) = .34  !  0.
+ 
+c              Calculate indices into lookup table HYDVAL
+ 
+            ISAND = MAX (1, MIN (NTEX, INT(FSAND(I,K)*(NTEX-1) + 1.5)))
+            ICLAY = MAX (1, MIN (NTEX, INT(FCLAY(I,K)*(NTEX-1) + 1.5)))
+ 
+            BEX(I,K)     = HYDVAL(ISAND,ICLAY,1)
+            IBEX(I,K)    = NINT(BEX(I,K))
+            SUCTION(I,K) = HYDVAL(ISAND,ICLAY,2)
+            POROS(I,K)   = 0.77              ! Williams+Smith, Table 4.1
+            HYDRAUL(I,K) = HYDVAL(ISAND,ICLAY,4)
+ 
+            SWILT(I,K)  = .300
+            UPCON(I)    = 30./86400.         ! 2.E-4
+            CSOI(I,K)   = 1920.              ! Williams+Smith, Table 4.1
+            RHOSOI(I,K) = 1300.              ! Williams+Smith, Table 4.1
+ 
+            POWLIQ = POROS(I,K)*WSOI(I,K)*(1.-WISOI(I,K))
+            POWICE = POROS(I,K)*WISOI(I,K)
+            ZCONDRY = .06                    ! Williams+Smith, Table 4.1
+            CONSOI(I,K) = ZCONDRY * ((0.56/.025)**POWLIQ)
+     *                            * ((2.24/.025)**POWICE)
+ 
+          ELSE
+ 
+            WRITE (IOTERM,110) ITEX(I,K), LOCPOI(I,1), LOCPOI(I,2), K
+  110       FORMAT(/'*** Error ***'
+     *             /'    Non-soil texture index (ITEX) =',i4
+     *             /'    lon, lat indices (LOCPOI)     =',2i4
+     *             /'    soil level (K)                =',i4
+     *             /'    Stop in SETSOI.'/)
+            CALL ENDRUN (-1)
+ 
+          ENDIF
+ 
+  102   CONTINUE
+  100 CONTINUE
+ 
+c        Set QGLIF, fraction of soil sfc evaporation from soil liquid
+c        (relative to total from liquid and ice), used in soilctl.
+ 
+      DO 300 I=1,NPOI
+        ZWTOT = (1.-WISOI(I,1))*WSOI(I,1) + WISOI(I,1)
+ 
+        IF (ZWTOT.GE.EPSILON) THEN
+          QGLIF(I) = (1.-WISOI(I,1))*WSOI(I,1) / ZWTOT
+        ELSE
+c         For condensation onto 100% dry surface:
+          IF (TSOI(I,1).GE.TMELT) THEN
+            QGLIF(I) = 1.
+          ELSE
+            QGLIF(I) = 0.
+          ENDIF
+        ENDIF
+  300 CONTINUE
+ 
+c        Set latent heat for soil surface, used by lsx.
+c        Use prognostic top-layer temperature tsoi, not the diagnostic
+c        skin temperature tg, since budgets assume vapor is exchanged
+c        with top-layer store at tsoi.
+ 
+      DO 400 I=1,NPOI
+        ZVAP = HVAPF(TSOI(I,1),TA(I))
+        ZSUB = HSUBF(TSOI(I,1),TA(I))
+        HVASUG(I) = QGLIF(I)*ZVAP + (1.-QGLIF(I))*ZSUB
+  400 CONTINUE
+ 
+c-----------------------------
+      IF (PHOTOTYPE.EQ.0) THEN
+c-----------------------------
+ 
+c          For BATS/SiB stomatal-resistance method:
+c          Set max uptake rate from each soil layer allowed by soil
+c          stress for the upper and lower stories, UPLAY[U,L]. Factor
+c          of 1-WISOI reduces max rate in proportion to pore space
+c          occupied by soil ice.
+c          Also account for fraction of roots in each soil layer
+c          (vertical sums of froot(i,*,1) and (i,*,2) = 1).
+c          Also set uptot[u,l] = sum of uplay[u,l] over soil layers.
+c          Note that uplay[u,l], uptot[u,l] are "per veg-covered area",
+c          not per overall area, consistent with their use in turvap.
+ 
+        CALL ZERO (UPTOTU, NVEC)
+        CALL ZERO (UPTOTL, NVEC)
+        DO 500 K=1,NSOILAY
+          DO 502 I=1,NPOI
+            ZW = MAX (WSOI(I,K), 1.E-3)
+            ZWILT = (ZW        **(-IBEX(I,K)) - 1.)
+     *            / (SWILT(I,K)**(-IBEX(I,K)) - 1.)
+            ZWILT = MAX (0., MIN (1., ZWILT))
+c           UPTG = MAX ( 0., MIN ( 1., (TSOI(I,K)-TMELT)/15. ) )
+            UPTG = MAX ( 0., MIN ( 1., (TSOI(I,K)-TMELT)/5. ) )
+            ZUP = (1.-MIN(WISOI(I,K),1.))*UPTG *(1.-ZWILT)
+            UPLAYU(I,K) = ZUP * FROOT(I,K,2)
+            UPLAYL(I,K) = ZUP * FROOT(I,K,1)
+            UPTOTU(I) = UPTOTU(I) + UPLAYU(I,K)
+            UPTOTL(I) = UPTOTL(I) + UPLAYL(I,K)
+  502     CONTINUE
+  500   CONTINUE
+ 
+c          Additional factor UPSIZ[U,L] (used in turvap) is proportional
+c          to LAI+SAI, relative to a "mature" ecosystem with
+c          lai+sai=BLAIM, times the BATS value of UPCON (set in setsoi),
+c          a typical h2o uptake rate for a mature well-watered ecosystem
+ 
+        DO 505 I=1,NPOI
+          UPSIZU(I) = UPCON(I)*((LAI(I,2)+SAI(I,2))/BLAIM)
+          UPSIZL(I) = UPCON(I)*((LAI(I,1)+SAI(I,1))/BLAIM)
+  505   CONTINUE
+ 
+c---------
+      ELSE
+c---------
+ 
+c          For IBIS photosynthesis/stomatal-conductance method:
+c          Set uplay[u,l] = soil-moisture stress factor
+c                           * root fraction for each story,
+c          and uptot[u,l] = their sums over soil layers
+ 
+        CALL DRYSTRESS (UPLAYU, UPLAYL, UPTOTU, UPTOTL)
+ 
+c----------
+      ENDIF
+c----------
+ 
+      RETURN
+      END
+c
+c----------------------------------------------------------------------
+c
+      SUBROUTINE SOILCTL (DTSOIL, TIME, ISTRIP)
+ 
+c        Steps soil model through one timestep
+ 
+c        DTSOIL = time step for this call
+c        TIME   = current elapsed time in seconds
+c        ISTRIP = current 1D strip number (for diagnostics in wadjust)
+ 
+#include <compar.h>
+#include <comfud.h>
+#include <comgrd.h>
+#include <comice.h>
+#include <commud.h>
+#include <commug.h>
+#include <commugxy.h>
+#include <commus.h>
+#include <comocn.h>
+#include <comsno.h>
+#include <comsoi.h>
+#include <comveg.h>
+#include <com1d.h>
+      DIMENSION OWSOI(NVEC,NSOILAY),   OWISOI(NVEC,NSOILAY),
+     *          OTSOI(NVEC,NSOILAY),
+     *          FWTOP(NVEC),           FHTOP(NVEC),
+     *          FSQUEEZ(NVEC),
+     *          DH(NVEC),              DW(NVEC),
+     *          ZPEN(NVEC),            ZPOROS(NVEC),
+     *          FWPOND(NVEC)
+
+c-----------
+#ifdef schem
+c-----------
+      dimension depout(nsoilay)
+      dimension
+     *  tot_chem(nchem,nvec,nsoilay),
+     *  alpha_chem(nchem,3,nvec,nsoilay),
+     *  dtot_chem(nchem,nvec,nsoilay),
+     *  fracliq_chem(nvec,nsoilay),
+     *  fracsoi_chem(nvec,nsoilay),
+     *  fracair_chem(nvec,nsoilay),
+     *  salitter_chem(nvec,nsoilay),
+     *  ph_chem(nvec,nsoilay),
+     *  havecarb_chem(nvec,nsoilay),
+     *  cec_chem(nvec,nsoilay),
+     *  addt_chem(nvec,nsoilay),
+     *  ammt_chem(nvec,nsoilay),
+     *  weimol_chem(nchem),
+ 
+     *  pvan_chem(nvec,nsoilay), pvapa_chem(nvec),
+     *  cd_chem(nvec)
+ 
+      logical havecarb_chem, first_chem
+      data first_chem /.true./
+#ifndef gcm
+c     for global applications, prognostic tot_chem will have to be
+c     transferred to and from tot_chemxy in getind, putind
+ 
+      save
+     *  tot_chem, salitter_chem, ph_chem, havecarb_chem,
+     *  cec_chem, addt_chem, ammt_chem, weimol_chem,
+     *  first_chem
+#endif
+#include <comsat.h>
+c-----
+#endif
+c-----
+ 
+c        Set soil infiltration rate FWTOP (for SOILH2O) and 
+c        upper heat flux FHTOP (for SOILHEAT).
+c        FHTOP includes FWTOP*CH2O*TSOI(I,1) to be consistent with 
+c        WHFLO in SOILHEAT, and accounts for changing rain temp from 
+c        TRAING to TSOI(I,1) and runoff temp from TSOI to 
+c        MAX(TSOI(I,1),TMELT).
+ 
+!DIR$ IVDEP
+      DO 50 I=1,NPOI
+
+c Evaporation:
+c       nb: fvapg is >= 0 (evaporation). If it was < 0 (condensation)
+c       in turvap, it was transferred to raing/snowg in subr lsx.
+c       This avoids difficulty of what to do with condensation (frost)
+c       onto sub-zero saturated soil (wisoi=1)
+
+c       Split evap between soil liquid or ice, by qglif (setsoi)
+        ZEVAP = QGLIF(I)*FVAPG(I)
+ 
+        WIPRE = WISOI(I,1)
+        WISOI(I,1) = MAX (0., WIPRE - (1.-QGLIF(I))*FVAPG(I)*DTSOIL
+     *                                /(RHOW*POROS(I,1)*HSOI(I,1)))
+c       readjust wsoi just for change in wisoi:
+        X = MAX (1.-WISOI(I,1), EPSILON)
+        WSOI(I,1) = CVMGT ( WSOI(I,1)*(1.-WIPRE)/X,
+     *                      WSOI(I,1), 1.-WISOI(I,1).GT.EPSILON )
+
+c Infiltration:
+        FWTOPMAX = RHOW*MAX(0.,1.-WISOI(I,1))**2
+     *            * (   HYDRAUL(I,1)
+c    *                + HYDRAUL(I,1)*SUCTION(I,1)*IBEX(I,1)
+c    *                  * MAX(0.,1.-WSOI(I,1)) / (0.5*HSOI(I,1))
+     *              )
+
+        FWTOP(I) = MIN (RAING(I)-ZEVAP, FWTOPMAX)
+
+c Runoff:
+        GRUNOF(I) = RAING(I)-ZEVAP - FWTOP(I)    ! cannot be -ve
+ 
+c Upper soil heat flux:
+        FHTOP(I) = HEATG(I)
+     *           + RAING(I)*CH2O*(TRAING(I)-TSOI(I,1))
+     *           - GRUNOF(I)*CH2O*MAX(TMELT-TSOI(I,1), 0.)
+ 
+c Diagnostics:
+        GEVAP(I) = -FWTOP(I)
+        GABLAT(I) = 0.
+        GADJUST(I) = 0.
+ 
+   50 CONTINUE
+ 
+c        Reduce soil moisture due to transpiration (UPSOI[U,L], from
+c        TURVAP).Need to do that before other time stepping below since
+c        specific heat of this transport is neglected. (UPSOI[U,L] tend
+c        to 0 fast enough as WSOI tends to 0 to avoid -ve WSOI).
+ 
+c        First set POROSFLO, reduced porosity due to ice content, used
+c        as the effective porosity for uptake here and liquid hydraulics
+c        later in SOILH2O. To avoid divide-by-zeros, use small EPSILON
+c        limit; this will always cancel with EPSILON or 0 in numerators.
+ 
+c        Also increment soil temperature to balance transpired water
+c        differential between temps of soil and leaf. Physically
+c        should apply this to the tree, but would be awkward in TURVAP.
+ 
+c        Also, save old soil moisture OWSOI and temperatures OTSOI so
+c        implicit SOILH2O and SOILHEAT can aposteriori deduce fluxes.
+ 
+      DO 70 K=1,NSOILAY
+!DIR$ IVDEP
+        DO 72 I=1,NPOI
+ 
+          POROSFLO(I,K) = POROS(I,K) * MAX (EPSILON, (1.-WISOI(I,K)))
+c         Next line just in case POROS(I,K) is 0.
+          POROSFLO(I,K) = MAX (POROSFLO(I,K), EPSILON)
+ 
+          WSOI(I,K) = WSOI(I,K) - DTSOIL * (UPSOIU(I,K)+UPSOIL(I,K))
+     *                            / (RHOW*POROSFLO(I,K)*HSOI(I,K))
+ 
+          CX = (   (1.-POROS(I,K))*CSOI(I,K)*RHOSOI(I,K)
+     *           + POROS(I,K)*(1.-WISOI(I,K))*WSOI(I,K)*CH2O*RHOW
+     *           + POROS(I,K)*WISOI(I,K)*CICE*RHOW
+     *         ) * HSOI(I,K)
+          TSOI(I,K) = TSOI(I,K) - DTSOIL *
+     *                (  UPSOIU(I,K)*CH2O*(TU(I)-TSOI(I,K))
+     *                 + UPSOIL(I,K)*CH2O*(TL(I)-TSOI(I,K)) ) / CX
+ 
+          OWSOI(I,K) = WSOI(I,K)
+          OWISOI(I,K) = WISOI(I,K)
+          OTSOI(I,K) = TSOI(I,K)
+   72   CONTINUE
+   70 CONTINUE
+ 
+c        Set penetrating solar fluxes across layer boundaries
+c        (zero for soil)
+ 
+      CALL ZERO (FPEN, NVEC*(NSOILAY+1))
+      CALL ZERO (ZPEN, NPOI)
+ 
+c        Step soil moisture liquid flow
+ 
+      CALL SOILH2O (OWSOI, FWTOP, FSQUEEZ, FWPOND, GRUNOF, WFLO, DTSOIL)
+
+c        Adjust infil, runoff (diagnostics) for fsqueez and fwpond,
+c        set gdrain*
+
+c     ZIRRIGFAC = 0.2
+      ZIRRIGFAC = 0.0
+
+      DO 100 I=1,NPOI
+        GINFIL(I)  = FWTOP(I)  - FSQUEEZ(I) + FWPOND(I)
+        GRUNOF(I)  = GRUNOF(I) + FSQUEEZ(I) - FWPOND(I)
+        GDRAIN(I)  = WFLO(I,NSOILAY+1)
+        GDRAINH(I) = WFLO(I,NSOILAY)
+#ifndef gcm
+c       take a fraction of grunof and gdrainh, put into irrigation 
+c       "reservoir", which is used in surfctl to augment rainaxy
+        GIRRIG(I) = GIRRIG(I) + ZIRRIGFAC*(GRUNOF(I)+MAX(GDRAINH(I),0.))
+     *                          * DTSOIL
+        GRUNOF(I) = GRUNOF(I)  - ZIRRIGFAC*GRUNOF(I)
+        GDRAINH(I)= GDRAINH(I) - ZIRRIGFAC*MAX(GDRAINH(I),0.)
+#endif
+ 100  CONTINUE
+ 
+c        Step temperatures due to conductive heat transport
+ 
+      CALL SOILHEAT (OTSOI, OWSOI, FHTOP, FPEN,
+     *               HFLO, WFLO, CONSOI, DTSOIL)
+ 
+#ifndef gcm
+c8880 Schwartz experiments
+c8880 if (nint(xdate).ge.1000101.) then
+c       do 880 k=1,nsoilay
+c         wsoi(1,k) = ((nint(xdate)/10000)-100)*.01
+c 880   continue
+c     endif
+#endif
+ 
+c        Set WSOI, WISOI to exactly 0 or 1 if differ by negligible
+c        amount (needed to avoid EPSILON errors in loop 400 below)
+ 
+      CALL WADJUST (DTSOIL, ISTRIP, 1)
+ 
+c        Heat-conserving adjustment for liquid/ice below/above melt
+c        point. Uses exactly the same logic as for intercepted veg h2o
+c        in STEPH2O2. We employ the fiction here that soil liquid and
+c        soil ice both have density RHOW, to avoid "pot-hole"
+c        difficulties of expansion on freezing. This is done by
+c        dividing all eqns through by RHOW(*HSOI).
+ 
+c        The factor (1-WSOI(old))/(1-WISOI(new)) in the WSOI increments
+c        results simply from conservation of h2o mass; recall WSOI is
+c        liquid content relative to ice-reduced pore space.
+ 
+      DO 400 K=1,NSOILAY
+        DO 402 I=1,NPOI
+ 
+c           Next line is just to avoid divide-by-zero if POROS = 0.
+ 
+          ZPOROS(I) = MAX (POROS(I,K),EPSILON)
+ 
+          CHAV =   (1.-ZPOROS(I))*CSOI(I,K)*RHOSOI(I,K)/RHOW
+     *           + ZPOROS(I)*(1.-WISOI(I,K))*WSOI(I,K)*CH2O
+     *           + ZPOROS(I)*WISOI(I,K)*CICE
+ 
+c            If liquid exists below melt point, freeze some to ice.
+c            (Note that if TSOI>TMELT or WSOI=0, nothing changes.)
+c            (Also note if resulting WISOI=1, either DW=0 and prev
+c            WISOI=1, or prev WSOI=1, so use of EPSILON is ok.)
+ 
+          DH(I) = CHAV * (TMELT-TSOI(I,K))
+          ZWSOI = MIN (1.,WSOI(I,K))
+          DW(I) = MIN ( ZPOROS(I)*(1.-WISOI(I,K))*ZWSOI,
+     *                  MAX (0.,DH(I)/HFUS) )
+          WISOI(I,K) = WISOI(I,K) +  DW(I)/ZPOROS(I)
+          WSOI(I,K)  = WSOI(I,K)  - (DW(I)/ZPOROS(I))*(1.-ZWSOI)
+     *                              / MAX(EPSILON,1.-WISOI(I,K))
+          CHAV =   (1.-ZPOROS(I))*CSOI(I,K)*RHOSOI(I,K)/RHOW
+     *           + ZPOROS(I)*(1.-WISOI(I,K))*WSOI(I,K)*CH2O
+     *           + ZPOROS(I)*WISOI(I,K)*CICE
+          TSOI(I,K) = TMELT - (DH(I)-HFUS*DW(I)) / CHAV
+ 
+c            If ice exists above melt point, melt some to liquid.
+c            (Note that if TSOI<TMELT or WISOI=0, nothing changes.)
+c            (Also note if resulting WISOI=1, DW=0 and prev WISOI=1,
+c            so use of EPSILON is ok.)
+ 
+          DH(I) = CHAV * (TSOI(I,K)-TMELT)
+          DW(I) = MIN ( ZPOROS(I)*WISOI(I,K), MAX (0., DH(I)/HFUS) )
+          WISOI(I,K) = WISOI(I,K) -  DW(I)/ZPOROS(I)
+          WSOI(I,K)  = WSOI(I,K)  + (DW(I)/ZPOROS(I))
+     *                 * (1.-WSOI(I,K)) / MAX(EPSILON,1.-WISOI(I,K))
+          CHAV =   (1.-ZPOROS(I))*CSOI(I,K)*RHOSOI(I,K)/RHOW
+     *           + ZPOROS(I)*(1.-WISOI(I,K))*WSOI(I,K)*CH2O
+     *           + ZPOROS(I)*WISOI(I,K)*CICE
+          TSOI(I,K) = TMELT + (DH(I)-HFUS*DW(I)) / CHAV
+ 
+c         Reset POROSFLO (although not used after this)
+          POROSFLO(I,K) = ZPOROS(I) * MAX (EPSILON, 1.-WISOI(I,K))
+ 
+  402   CONTINUE
+  400 CONTINUE
+ 
+c        Set WSOI, WISOI to exactly 0 or 1 if differ by negligible
+c        amount (roundoff error in loop 400 above can produce very
+c        small negative amounts)
+ 
+      CALL WADJUST (DTSOIL, ISTRIP, 0)
+ 
+c        If hydrol, re-set prescribed at-depth category soil moistures
+c        (nlayhyd, thetahyd in commugxy...also done in inisoi).
+
+#ifdef hydmodel
+      do i=1,npoi
+        icat = mod(locpoi(i,1)-1,ncateghyd) + 1 
+        do k=nlayhyd(icat),nsoilay
+c         if (tsoi(i,k).lt.tmelt) then
+c           wisoi(i,k) = thetahyd(icat)
+c           wsoi(i,k) = 0.
+c         else
+            wisoi(i,k) = 0.                ! no permafrost
+            wsoi(i,k) = thetahyd(icat)
+c         endif
+        enddo
+      enddo
+#endif
+ 
+c        Call soil chemistry model
+ 
+c-----------
+#ifdef schem
+c-----------
+      do k=1,nsoilay
+        do i=1,npoi
+          zw = (1.-owisoi(i,k))*owsoi(i,k) + owisoi(i,k)
+          zb = max (zw**ibex(i,k), 1.e-8)
+          ze= max(-50.,-grav*suction(i,k)/(zb*rvap*otsoi(i,k)))
+          pvan_chem(i,k) = esat(otsoi(i,k)) * exp(ze)
+        enddo
+      enddo
+ 
+      do i=1,npoi
+        pvapa_chem(i) = psurf(i) * q34(i)/(.622+.378*q34(i))
+        cd_chem(i) = max(1.-fi(i),.01) * sg(i) / rhoa(i)
+      enddo
+ 
+ 
+      do i=1,npoi
+        do k=1,nsoilay
+          call sss ( tot_chem(1,i,k),
+     *               alpha_chem(1,1,i,k),
+     *               dtot_chem(1,i,k),
+     *               fracliq_chem(i,k),
+     *               fracsoi_chem(i,k),
+     *               fracair_chem(i,k),
+     *               otsoi(i,k),
+     *               salitter_chem(i,k),
+     *               ph_chem(i,k),
+     *               havecarb_chem(i,k),
+     *               cec_chem(i,k),
+     *               addt_chem(i,k),
+     *               ammt_chem(i,k),
+     *               weimol_chem,
+     *               first_chem)
+        enddo
+      enddo
+      first_chem = .false.
+ 
+      call soilchem (hsoi,     rhosoi,  poros,
+     *               owsoi,    owisoi,  otsoi,
+     *               wsoi,     wisoi,   tsoi,
+     *               wflo,     gevap,   pvan_chem, pvapa_chem,
+     *               psurf,    t34,     cd_chem,   rhow,  tmelt,
+     *               tot_chem,
+     *               npoi,     dtsoil,  xdtpri,   xdtbud, time)
+c-----
+#endif
+c-----
+ 
+c        Scratch file output for "Plotwet" tests (to fort.150)
+ 
+#ifndef gcm
+c     iu = 150
+c     if (time.eq.0.) then
+c       depout(1) = 0.5*hsoi(1,1)
+c       do 700 k=2,nsoilay
+c         depout(k) = depout(k-1) + 0.5*(hsoi(1,k-1)+hsoi(1,k))
+c 700   continue
+c       write(iu,702) depout
+c 702   format(7x,3x,100f7.3)
+c       write(iu,*)
+c     endif
+c     if (mod(time,1.*86400.).le.30.) write(iu,704)
+c    *  mod(time/.864e5,365.), (wsoi(1,k),k=1,nsoilay)
+c 704 format(f7.3,3x,100f7.3)
+#endif
+c
+c        Set soil moisture to particular values
+c
+c     do 800 k=1,nsoilay
+c       do 802 i=1,npoi
+c         wsoi(i,k) = 0.9
+c         wisoi(i,k) = 0.
+c 802   continue
+c 800 continue
+c
+      RETURN
+      END
+c
+c----------------------------------------------------------------------
+c
+      SUBROUTINE SOILH2O (OWSOI, FWTOP, FSQUEEZ, FWPOND, GRUNOF, WFLO, 
+     *                    DTIM)
+c
+c        Sets up call to TRIDIA to solve implicit soil moisture eqn,
+c        using soil temperatures in WSOI (in comsoi). Lower bc can be
+c        no h2o flow or free drainage, set by BPERM below.
+c
+c        All arguments are supplied except FSQUEEZ, FWPOND, WFLO (ret).
+c        OWSOI  = soil moistures at start of timestep
+c        FWTOP  = dwnd liq h2o flux into top layer due to evap/condens
+c        FSQUEEZ= upwd liq h2o flux "squeezed" out of top layer
+c        FWPOND = sfc runoff to lower layers through macrocracks/ponding
+c        GRUNOF = surface liquid runoff (before FWPOND)
+c        WFLO   = downward h2o flow across layer boundaries
+c        DTIM   = time step for this call
+c
+c        Local arrays and scalars:
+c        HSOIM  = vertical distances between centers of layers
+c        WSOIM  = interpolated moisture values at layer boundaries
+c        A,B,BWN[1] = intermediate terms (const for each pt -see notes)
+c        M,N    = exponents (constant for each point - see notes)
+c        E,F,G  = intermediate terms in algebraic devel (see notes)
+c        D1,2,3 = diagonals of tridiagonal systems of equations
+c        RHS    = right-hand sides of systems of equations
+c        W1,2   = work arrays needed by TRIDIA
+c        DMIN   = minimum diffusivity for dry soils (m**2 s-1)
+c        RIMP   = implicit fraction of the calculation (0 to 1)
+c        BPERM  = 0. for impermeable (no drainage) lower bc,
+c                 1. for free drainage lower bc,
+c                 inbetween for semi-permeable base.
+c
+#include <compar.h>
+#include <comfud.h>
+#include <comgrd.h>
+c for setting bperm vs. lon,lat:
+#include <commapl.h>
+#include <comsoi.h>
+#include <com1d.h>
+      DIMENSION
+     *  OWSOI(NVEC,NSOILAY),
+     *  FWTOP(NVEC),            FSQUEEZ(NVEC),
+     *  FWPOND(NVEC),           GRUNOF(NVEC),
+     *  WFLO(NVEC,NSOILAY+1)
+c
+      DIMENSION
+     *  HSOIM(NVEC,NSOILAY+1),  WSOIM(NVEC,NSOILAY+1),
+     *  WSOIA(NVEC,NSOILAY+1),  WSOIB(NVEC,NSOILAY+1),
+     *  WEIM(NVEC,NSOILAY+1),   WEIP(NVEC,NSOILAY+1),
+     *  A(NVEC),                B(NVEC),
+     *  M(NVEC),                N(NVEC),
+     *  BWN(NVEC),              BWN1(NVEC),
+     *  E(NVEC,NSOILAY+1),      F(NVEC,NSOILAY+1),   G(NVEC,NSOILAY+1),
+     *  D1(NVEC,NSOILAY),       D2(NVEC,NSOILAY),    D3(NVEC,NSOILAY),
+     *  RHS(NVEC,NSOILAY),      W1(NVEC,NSOILAY),    W2(NVEC,NSOILAY),
+     *  BPERM(NVEC)
+c
+      SAVE DMIN, RIMP
+      DATA DMIN, RIMP /1.E-9, 1./
+c
+c       Set lower bc (permeability of base)
+c
+      do i=1,npoi
+c       bperm(i) = 0.   ! impermeable base
+c       bperm(i) = 1.   ! permeable base
+c       bperm(i) = 0.98 ! Jon Foley 8/94
+#if defined (gcm) || defined (nocateg)
+        bperm(i) = 0.10
+#else
+        bperm(i) = xbperm
+#endif
+      enddo
+c
+c        Set interpolated moistures at layer interfaces, and
+c        interpolation weights
+c
+      DO 100 K=1,NSOILAY+1
+        IF (K.EQ.1) THEN
+          DO 102 I=1,NPOI
+            HSOIM(I,K) = 0.5*HSOI(I,K)
+            WSOIM(I,K) = WSOI(I,K)
+c           WSOIA(I,K) = MIN(WSOI (I,K),1.)
+            WSOIA(I,K) = MIN(WSOIM(I,K),1.)
+            WSOIB(I,K) = MIN(WSOIM(I,K),1.)
+            WEIM(I,K) = 0.
+            WEIP(I,K) = 1.
+  102     CONTINUE
+c
+        ELSE IF (K.LE.NSOILAY) THEN
+          DO 104 I=1,NPOI
+            HSOIM(I,K)= 0.5*(HSOI(I,K-1)+HSOI(I,K))
+            WEIM(I,K) = 0.5*HSOI(I,K)/HSOIM(I,K)
+            WEIP(I,K) = 1.-WEIM(I,K)
+            WSOIM(I,K) = WEIM(I,K)*WSOI(I,K-1) + WEIP(I,K)*WSOI(I,K)
+c           WSOIA(I,K) = MIN(WSOI(I,K-1),1.)
+            WSOIA(I,K) = MIN(WSOIM(I,K),1.)
+            WSOIB(I,K) = MIN(WSOIM(I,K),1.)
+  104     CONTINUE
+c
+        ELSE IF (K.EQ.NSOILAY+1) THEN
+          DO 106 I=1,NPOI
+            HSOIM(I,K) = 0.5*HSOI(I,K-1)
+            WSOIM(I,K) = WSOI(I,K-1)
+c           WSOIA(I,K) = MIN(WSOI(I,K-1),1.)
+            WSOIA(I,K) = MIN(WSOIM(I,K),1.)
+            WSOIB(I,K) = MIN(WSOIM(I,K),1.)
+            WEIM(I,K) = 1.
+            WEIP(I,K) = 0.
+  106     CONTINUE
+        ENDIF
+  100 CONTINUE
+c
+c        Set intermediate quantities E,F,G. These are terms in the
+c        expressions for the fluxes at boundaries between layers,
+c        so are zero for K=1. Use BWN1 to account for minimum
+c        diffusivity DMIN. BPERM is used for K=NSOILAY+1 to set the
+c        type of the lower bc.
+c
+      DO 200 K=1,NSOILAY+1
+c
+        IF (K.EQ.1) THEN
+          CALL ZERO (E(1,K), NPOI)
+          CALL ZERO (F(1,K), NPOI)
+          CALL ZERO (G(1,K), NPOI)
+c
+        ELSE IF (K.LE.NSOILAY) THEN
+          DO 202 I=1,NPOI
+c           Now that HYDRAUL, SUCTION and IBEX can vary with depth,
+c           use averages of surrounding mid-layer values. This is not
+c           rigorous since basic equations are in terms of potentials,
+c           not moisture - but that would require rewrite of SOILH2O
+c           (see notes 8/27/93).
+ 
+            A(I) =   WEIM(I,K)*HYDRAUL(I,K-1)
+     *             + WEIP(I,K)*HYDRAUL(I,K  )
+            B(I) =   WEIM(I,K)*HYDRAUL(I,K-1)*SUCTION(I,K-1)*BEX(I,K-1)
+     *             + WEIP(I,K)*HYDRAUL(I,K  )*SUCTION(I,K  )*BEX(I,K  )
+            ZBEX =   WEIM(I,K)*BEX(I,K-1)
+     *             + WEIP(I,K)*BEX(I,K  )
+            M(I) = 2*NINT(ZBEX) + 3
+            N(I) =   NINT(ZBEX) + 2
+ 
+            BWN1(I) = B(I)*(WSOIB(I,K)**(N(I)-1))
+            BWN(I)  = BWN1(I)*WSOIB(I,K)
+            BWN1(I) = CVMGT (0., BWN1(I), BWN(I).LT.DMIN)
+            BWN(I) = MAX (BWN(I), DMIN)
+ 
+c           Calculate intermediate terms E,F,G
+ 
+            E(I,K) =  (-1.+RIMP*M(I))*A(I)*(WSOIA(I,K)**M(I))
+     *              + ((1.-RIMP)*BWN(I) - RIMP*N(I)*BWN1(I)*WSOIB(I,K))
+     *                * (WSOI(I,K)-WSOI(I,K-1)) / HSOIM(I,K)
+c
+            F(I,K) = - RIMP*M(I)*A(I)*(WSOIA(I,K)**(M(I)-1))
+     *               + RIMP*N(I)*BWN1(I)
+     *                 * (WSOI(I,K)-WSOI(I,K-1)) / HSOIM(I,K)
+c
+            G(I,K) = RIMP*BWN(I)
+ 
+  202     CONTINUE
+c
+        ELSE IF (K.EQ.NSOILAY+1) THEN
+          DO 204 I=1,NPOI
+            A(I) = HYDRAUL(I,NSOILAY)
+            B(I) = HYDRAUL(I,NSOILAY)*SUCTION(I,NSOILAY)*IBEX(I,NSOILAY)
+            M(I) = 2*IBEX(I,NSOILAY) + 3
+            N(I) = IBEX(I,NSOILAY) + 2
+ 
+c           E(I,K) = (-1.+RIMP*M(I))*A(I)*(WSOIA(I,K)**M(I))*BPERM(I)
+c           F(I,K) = - RIMP*M(I)*A(I)*(WSOIA(I,K)**(M(I)-1))*BPERM(I)
+c           Or time-explicit gravitational drainage out of bottom
+c           (must use if compute wflo from bottom up):
+            E(I,K) =                -A(I)*(WSOIA(I,K)**M(I))*BPERM(I)
+            F(I,K) = 0.
+            G(I,K) = 0.
+  204     CONTINUE
+        ENDIF
+c
+  200 CONTINUE
+c
+c        Reduce all E,F,G in proportion to the minimum of the two
+c        adjacent layers' (1-WISOI), to account for restriction of flow
+c        by soil ice. This will cancel in loop 300  with the factor
+c        1-WISOI in (one of) the layer's POROSFLO, even if WISOI=1 by
+c        the use of EPSILON limit. So a layer with WISOI=1 will form a
+c        barrier to flow of liquid, but still have a predicted WSOI.
+c
+      DO 210 K=1,NSOILAY+1
+        KKA = MAX (K-1,1)
+        KKB = MIN (K,NSOILAY)
+        DO 212 I=1,NPOI
+c         Z = MAX(0.,1.-MAX(WISOI(I,KKA),WISOI(I,KKB)))
+c         Multiply by an additional factor of 1-wisoi for stability
+          Z = MAX(0.,1.-MAX(WISOI(I,KKA),WISOI(I,KKB)))**2
+          E(I,K) = Z * E(I,K)
+          F(I,K) = Z * F(I,K)
+          G(I,K) = Z * G(I,K)
+  212   CONTINUE
+  210 CONTINUE
+c
+c        Set matrix diagonals and right-hand sides.
+c
+      DO 300 K=1,NSOILAY
+c
+        DO 302 I=1,NPOI
+          DT = DTIM / (POROSFLO(I,K)*HSOI(I,K))
+          D1(I,K) = DT*(   F(I,K)*0.5*HSOI(I,K)/HSOIM(I,K)
+     *                   - G(I,K)/HSOIM(I,K) )
+          RHS(I,K) = WSOI(I,K) + DT*( E(I,K+1) - E(I,K) )
+  302   CONTINUE
+c
+        IF (K.EQ.1) THEN
+          DO 304 I=1,NPOI
+            DT = DTIM / (POROSFLO(I,K)*HSOI(I,K))
+            RHS(I,K) = RHS(I,K) + DT*FWTOP(I)/RHOW
+  304     CONTINUE
+        ENDIF
+c
+        IF (K.LT.NSOILAY) THEN
+          KM1 = MAX (K-1,1)
+          DO 306 I=1,NPOI
+            DT = DTIM / (POROSFLO(I,K)*HSOI(I,K))
+            D2(I,K) = 1. + DT*( - F(I,K+1)*0.5*HSOI(I,K+1)/HSOIM(I,K+1)
+     *                          + F(I,K)  *0.5*HSOI(I,KM1)/HSOIM(I,K)
+     *                          + G(I,K+1)/HSOIM(I,K+1)
+     *                          + G(I,K)  /HSOIM(I,K) )
+            D3(I,K) = DT*( - F(I,K+1)*0.5*HSOI(I,K)/HSOIM(I,K+1)
+     *                     - G(I,K+1)              /HSOIM(I,K+1) )
+  306     CONTINUE
+c
+        ELSE IF (K.EQ.NSOILAY) THEN
+          DO 308 I=1,NPOI
+            DT = DTIM / (POROSFLO(I,K)*HSOI(I,K))
+            D2(I,K) = 1. + DT*( - F(I,K+1)
+     *                          + F(I,K)  *0.5*HSOI(I,K-1)/HSOIM(I,K)
+     *                          + G(I,K)  /HSOIM(I,K) )
+            D3(I,K) = 0.
+  308     CONTINUE
+        ENDIF
+c
+  300 CONTINUE
+c
+c        Solve the systems of equations
+c
+      CALL TRIDIA (NPOI, NVEC, NSOILAY, D1,D2,D3, RHS, WSOI, W1,W2)
+c
+c        Squeeze any excess liquid (wsoi > 1) to next highest layer,
+c        crudely simulating saturated pressure (fsqueez). Any liquid
+c        squeezed out of top layer is transferred to runoff.
+c
+      CALL ZERO (FSQUEEZ, NPOI)
+      DO 410 K=NSOILAY,1,-1
+        DO 412 I=1,NPOI
+          ZZ = RHOW * POROS(I,K) * (1.-WISOI(I,K)) * HSOI(I,K)
+          WSOI(I,K) = WSOI(I,K) + DTIM * FSQUEEZ(I) / MAX(ZZ,EPSILON)
+          FSQUEEZ(I) = MAX (WSOI(I,K)-1.,0.) * MAX(ZZ,EPSILON) / DTIM
+          WSOI(I,K) = MIN (WSOI(I,K),1.)
+  412   CONTINUE
+  410 CONTINUE
+
+c        Divert fraction zfrpond of surface runoff through macrocracks
+c        or ponding to soil layers above depth zhmpond. Apply to each
+c        layer downwards in turn, saturating layers until or if used up.
+c        Return total flux diverted (fwpond)
+
+      call zero (fwpond, npoi)
+c     zfrpond = 0.5
+c     zhmpond = 1.
+c     do i=1,npoi
+c       zpond = zfrpond*grunof(i)*dtim
+c       zpond0 = zpond
+c       zhb = 0.
+c       do k=1,nsoilay
+c         zhb = zhb + hsoi(i,k)
+c         if (zhb.le.zhmpond) then
+c           zz = rhow*poros(i,k)*(1.-wisoi(i,k))*hsoi(i,k)
+c           dpond = min (zz*(1.-wsoi(i,k)), zpond)
+c           zpond = zpond - dpond
+c           wsoi(i,k) = wsoi(i,k) + dpond / max (1.e-10, zz)
+c           wsoi(i,k) = min (1., wsoi(i,k))
+c         endif
+c       enddo
+c       fwpond(i) = (zpond0 - zpond) / dtim
+c     enddo
+
+c        Deduce downward h2o fluxes between layers (wflo)
+
+      DO I=1,NPOI
+        WFLO(I,NSOILAY+1) = - RHOW * E(I,NSOILAY+1)
+      ENDDO
+      DO K=NSOILAY,1,-1
+        DO I=1,NPOI
+          ZZ = RHOW * POROS(I,K) * (1.-WISOI(I,K)) * HSOI(I,K)
+          WFLO(I,K) = WFLO(I,K+1) + (WSOI(I,K)-OWSOI(I,K)) * ZZ / DTIM
+        ENDDO
+      ENDDO
+c
+c       Adjust top laye WFLO for FSQUEEZ  
+c       No...erroneous...already done in loop 410...bug (stuq) Jan 06
+c
+c     DO 420 I=1,NPOI
+c        WFLO(I,1) = WFLO(I,1) + FSQUEEZ(I)
+c 420 CONTINUE
+c
+      RETURN
+      END
+c
+c----------------------------------------------------------------------
+c
+      SUBROUTINE SOILHEAT (OTSOI, OWSOI, FHTOP, FPEN,
+     *                     HFLO, WFLO, CONSOI, DTIM)
+c
+c        Sets up call to TRIDIA to solve implicit soil/icesheet heat
+c        conduction, using layer temperatures in TSOI (in comsoi).
+c        The heat flux due to liquid flow previously calculated
+c        in SOILH2O is accounted for. Lower bc is conductive flux = 0
+c        for soil (although the flux due to liquid drainage flow can
+c        be > 0).
+c
+c        All arguments are supplied except HFLO (returned).
+c        OTSOI = soil temps at start of timestepstep (before SOILH2O)
+c        OWSOI = soil moistures at start of timestep (before SOILH2O)
+c        FHTOP = heat flux into top layer from atmos
+c        FPEN  = penetrating solar flx across layer bdries (0 at top)
+c        HFLO  = downward heat flow across layer boundaries
+c        WFLO  = downward h2o  flow across layer boundaries
+c        CONSOI= soil conductivities in soil layers
+c        DTIM  = time step for this call
+c
+c        Local arrays and scalars:
+c        WHFLO  = downward heat fluxes across layer bdries due to h2o
+c                 movement calculated in SOILH2O
+c        CON    = conduction coefficents between layers
+c        C0,1   = specific heats at start and end of timestep
+c        D1,2,3 = diagonals of tridiagonal systems of equations
+c        RHS    = right-hand sides of systems of equations
+c        W1,2   = work arrays needed by TRIDIA
+c        RIMP   = implicit fraction of the calculation (0 to 1)
+c
+#include <compar.h>
+#include <comgrd.h>
+#include <comocn.h>
+#include <comsoi.h>
+      DIMENSION
+     *  OTSOI(NVEC,NSOILAY),   OWSOI(NVEC,NSOILAY),
+     *  FHTOP(NVEC),           FPEN(NVEC,NSOILAY+1),
+     *  HFLO(NVEC,NSOILAY+1),  WFLO(NVEC,NSOILAY+1),
+     *  CONSOI(NVEC,NSOILAY)
+ 
+      DIMENSION
+     *  WHFLO(NVEC,NSOILAY+1), CON(NVEC,NSOILAY+1),
+     *  C0(NVEC,NSOILAY),      C1(NVEC,NSOILAY),
+     *  D1(NVEC,NSOILAY),      D2(NVEC,NSOILAY),  D3(NVEC,NSOILAY),
+     *  RHS(NVEC,NSOILAY),     W1(NVEC,NSOILAY),  W2(NVEC,NSOILAY)
+c
+      DATA RIMP /1.0/
+c
+c
+c        Set conduction coefficient between layers, and heat fluxes
+c        due to liquid transport. (CONSOI has been set in SETSOI.)
+c
+      DO 100 K=1,NSOILAY+1
+c
+        IF (K.EQ.1) THEN
+          DO 102 I=1,NPOI
+             CON(I,K) = 0.
+             WHFLO(I,K) = WFLO(I,K)*CH2O*TSOI(I,K)
+  102     CONTINUE
+ 
+c Avoid SGI compiler bug with -O2 or -O3...executes next elseif for k=1!
+#ifdef sgi
+        ENDIF
+        IF (K.GT.1. .AND. K.LE.NSOILAY) THEN
+#else
+        ELSE IF (K.LE.NSOILAY) THEN
+#endif
+ 
+          DO 104 I=1,NPOI
+            CON(I,K) =  1. / (  0.5*HSOI(I,K-1)/CONSOI(I,K-1)
+     *                        + 0.5*HSOI(I,K)  /CONSOI(I,K) )
+c
+            T = (HSOI(I,K)*TSOI(I,K-1) + HSOI(I,K-1)*TSOI(I,K))
+     *          / (HSOI(I,K-1) + HSOI(I,K))
+            WHFLO(I,K) = WFLO(I,K)*CH2O*T
+  104     CONTINUE
+c
+        ELSE IF (K.EQ.NSOILAY+1) THEN
+           DO 106 I=1,NPOI
+              CON(I,K) = 0.
+              WHFLO(I,K) = WFLO(I,K)*CH2O*TSOI(I,K-1)
+  106      CONTINUE
+        ENDIF
+c
+  100 CONTINUE
+c
+c        Set diagonals of matrix and right-hand side. Use old and
+c        new heat capacities C0,C1 consistently with moisture fluxes
+c        WHFLO computed above, to conserve heat associated with
+c        changing h2o amounts in each layer.
+c
+      DO 200 K=1,NSOILAY
+        KM1 = MAX (K-1,1)
+        KP1 = MIN (K+1,NSOILAY)
+c
+        DO 202 I=1,NPOI
+          C0(I,K) = (   (1.-POROS(I,K))*CSOI(I,K)*RHOSOI(I,K)
+     *                + POROS(I,K)*(1.-WISOI(I,K))*OWSOI(I,K)*CH2O*RHOW
+     *                + POROS(I,K)*WISOI(I,K)*CICE*RHOW
+     *              ) * HSOI(I,K)
+          C1(I,K) = (   (1.-POROS(I,K))*CSOI(I,K)*RHOSOI(I,K)
+     *                + POROS(I,K)*(1.-WISOI(I,K))* WSOI(I,K)*CH2O*RHOW
+     *                + POROS(I,K)*WISOI(I,K)*CICE*RHOW
+     *              ) * HSOI(I,K)
+c
+          D1(I,K) =    - (DTIM/C1(I,K)) * RIMP * CON(I,K)
+          D2(I,K) = 1. + (DTIM/C1(I,K)) * RIMP * (CON(I,K)+CON(I,K+1))
+          D3(I,K) =    - (DTIM/C1(I,K)) * RIMP * CON(I,K+1)
+c
+          RHS(I,K) = (C0(I,K)/C1(I,K))*TSOI(I,K) + (DTIM/C1(I,K))
+     *               * ( (1.-RIMP)*CON(I,K)  *(TSOI(I,KM1)-TSOI(I,K))
+     *                 + (1.-RIMP)*CON(I,K+1)*(TSOI(I,KP1)-TSOI(I,K))
+     *                 + WHFLO(I,K) - WHFLO(I,K+1)
+     *                 + FPEN(I,K) - FPEN(I,K+1) )
+  202   CONTINUE
+c
+        IF (K.EQ.1) THEN
+          DO 204 I=1,NPOI
+            RHS(I,K) = RHS(I,K) + (DTIM/C1(I,K))*FHTOP(I)
+  204     CONTINUE
+        ENDIF
+c
+  200 CONTINUE
+c
+c        Solve systems of equations
+c
+      CALL TRIDIA (NPOI, NVEC, NSOILAY, D1,D2,D3, RHS, TSOI, W1,W2)
+c
+c        Deduce downward heat fluxes between layers
+c
+      CALL SCOPY (NPOI, FHTOP, 1, HFLO(1,1), 1)
+c
+      DO 400 K=1,NSOILAY
+        DO 402 I=1,NPOI
+          HFLO(I,K+1) = HFLO(I,K)
+     *                - (C1(I,K)*TSOI(I,K) - C0(I,K)*OTSOI(I,K)) / DTIM
+  402   CONTINUE
+  400 CONTINUE
+c
+      RETURN
+      END
+c
+c----------------------------------------------------------------------
+c
+      SUBROUTINE WADJUST (DTSOIL, ISTRIP, IFLAG)
+ 
+c        Set WSOI, WISOI to exactly 0 if differ by negligible amount,
+c        to protect EPSILON logic in SOILCTL and SOILH2O. Ice-liquid
+c        transformations in SOILCTL loop 400 can produce very small
+c        -ve amounts due to roundoff error, and very small -ve or +ve
+c        amounts can cause (harmless) "underflow" FPEs in SOILH2O.
+ 
+c        DTSOIL = time step for this call (for diagnostic calcs only)
+c        ISTRIP = current 1D strip number (for diagnostic calcs only)
+c        IFLAG = 1 to calculate max and min pre-adjusted wsoi,wisoi
+c                and warn if outside limits (first call after soih2o).
+ 
+#include <compar.h>
+#include <comgrd.h>
+#include <commapl.h>
+#include <commud.h>
+#include <comsoi.h>
+#include <com1d.h>
+      SAVE WMIN, WMAX
+#ifdef gcm
+      DATA WMIN, WMAX /-0.001, 1.001/
+#else
+      DATA WMIN, WMAX / 0.   , 1.   /
+#endif
+ 
+#ifndef omp
+      SAVE NWMIN, NWMAX,
+     *     WMINZ, WMAXZ,
+     *     WIMINZ,WIMAXZ,
+     *     IMINZ, IMAXZ,
+     *     JMINZ, JMAXZ,
+     *     KMINZ, KMAXZ
+#endif
+ 
+ 
+c        Calculate max and min wsoi,wisoi, warn if outside limits.
+c        Only do for singel processing (won't work for multiprocessing)
+ 
+c-------------------------
+#ifndef omp
+      IF (IFLAG.EQ.1) THEN
+c-------------------------
+ 
+        IF (ISTRIP.EQ.1) THEN
+          NWMIN = 0
+          NWMAX = 0
+          WMINZ = 1.E20
+          WMAXZ = -1.E20
+        ENDIF
+ 
+        DO 10 K=1,NSOILAY
+          DO 12 I=1,NPOI
+            IF (WSOI(I,K).LT.WMIN) THEN
+              NWMIN = NWMIN + 1
+              IF (WSOI(I,K).LT.WMINZ) THEN
+                WMINZ = WSOI(I,K)
+                WIMINZ= WISOI(I,K)
+                IMINZ = LOCPOI(I,1)
+                JMINZ = LOCPOI(I,2)
+                KMINZ = K
+              ENDIF
+            ENDIF
+            IF (WSOI(I,K).GT.WMAX) THEN
+              NWMAX = NWMAX + 1
+              IF (WSOI(I,K).GT.WMAXZ) THEN
+                WMAXZ = WSOI(I,K)
+                WIMAXZ= WISOI(I,K)
+                IMAXZ = LOCPOI(I,1)
+                JMAXZ = LOCPOI(I,2)
+                KMAXZ = K
+              ENDIF
+            ENDIF
+   12     CONTINUE
+   10   CONTINUE
+ 
+        IF (ISTRIP.EQ.NSTRIP) THEN
+          IF (NWMIN.GT.0) THEN
+            WRITE(IOTERM,20) ' < ', WMIN, NWMIN,
+     *        WMINZ, WIMINZ,
+     *        ALON(IMINZ)*180./PI, ALAT(JMINZ)*180./PI, KMINZ
+          ENDIF
+ 
+          IF (NWMAX.GT.0) THEN
+            WRITE(IOTERM,20) ' > ', WMAX, NWMAX,
+     *        WMAXZ, WIMAXZ,
+     *        ALON(IMAXZ)*180./PI, ALAT(JMAXZ)*180./PI, KMAXZ
+          ENDIF
+ 
+   20     FORMAT
+     *      (/' *** Warning: # of soil cells with WSOI',a,f5.2,' =',i6
+     *       /'     Worst cell has WSOI =',f8.4,'  (WISOI =',f8.4,')'
+     *       /'     at lon,lat =',2f7.2,'   at soil layer =',i2/)
+        ENDIF
+ 
+c----------
+      ENDIF
+#endif
+c----------
+ 
+ 
+c        Impose max, min limits on WSOI, WISOI
+ 
+      DO 100 K=1,NSOILAY
+        DO 102 I=1,NPOI
+ 
+c        if (locpoi(i,1).eq.75 .and. locpoi(i,2).eq.34) then
+c           if (k.eq.1) write(*,*)
+c           write(*,888) iflag, k, wsoi(i,k),wisoi(i,k)
+c 888       format('wadjust:   iflag=',i2,'   k=',i2,
+c    *             '   wsoi=',f20.5,'   wisoi=',f20.5)
+c        endif
+ 
+         ZTOT0 = HSOI(I,K)*POROS(I,K)*RHOW
+     *         * ((1.-WISOI(I,K))*WSOI(I,K) + WISOI(I,K))
+ 
+         WSOI(I,K)  = CVMGT (0., WSOI(I,K),  WSOI(I,K) .LT.EPSILON)
+         WISOI(I,K) = CVMGT (0., WISOI(I,K), WISOI(I,K).LT.EPSILON)
+ 
+         WSOI(I,K)  = MIN (WMAX, WSOI(I,K))
+         WISOI(I,K) = MIN (1.,   WISOI(I,K))
+ 
+         WSOI(I,K) = CVMGT (0., WSOI(I,K), WISOI(I,K).GT.1.-EPSILON)
+ 
+c        For diagnosis of total adjustment:
+         ZTOT1 = HSOI(I,K)*POROS(I,K)*RHOW
+     *         * ((1.-WISOI(I,K))*WSOI(I,K) + WISOI(I,K))
+         GADJUST(I) = GADJUST(I) + (ZTOT1-ZTOT0)/DTSOIL
+ 
+  102   CONTINUE
+  100 CONTINUE
+ 
+      RETURN
+      END
+ 
+c-----------------------------------------------------------------------
+ 
+c     Standalone test of subr claphorn (first remove compar)
+c     program claptest
+c     parameter (ntex=51, nhyd=4)
+c     dimension hydval(ntex,ntex,nhyd)
+c     call claphorn (hydval, ntex, nhyd)
+c     call endrun (0)
+c     end
+ 
+c-----------------------------------------------------------------------
+ 
+      subroutine claphorn (hydval, ntex, nhyd)
+ 
+c     Calculates hydval, a look-up table of hydraulic values
+c     (B, saturated suction, porosity, saturated hydraulic conductivity)
+c     for a uniform grid of sand and clay values. Does this by
+c     using the regression formulae in Cosby et al.,1984,Water Res.Res.,
+c     20,682-690, Table 5.
+ 
+c     Called once at start of each run by INISOD.
+ 
+c     hydval = look-up table of various hydraulic quantities (returned)
+c     ntex   = dimension of uniform mesh in sand,clay space (supplied)
+c     nhyd   = number of hydraulic quantities (supplied, must = nhydat)
+ 
+#include <compar.h>
+ 
+      dimension
+     *  hydval(ntex,ntex,nhyd)
+ 
+      parameter (nhydat=4)
+ 
+      character*70 chyd(nhydat)
+ 
+      data chyd /
+     *  'B',
+     *  'saturated matric potential',
+     *  'porosity',
+     *  'saturated hydraulic conductivity'
+     *  /
+ 
+c====================================
+ 
+      if (nhyd.ne.nhydat) then
+         write(*,*) 'Error in claphorn: nhyd=',nhyd,'   nhydat=',nhydat
+         call endrun (-1)
+      endif
+ 
+c        Overall sand and clay loops uniformly spanning 2-D
+c        sand/silt/clay space (percents sand=x, silt=y, clay=z).
+c        Actually this spans into regions with negative silt values,
+c        which will never be used by the soil model.
+ 
+      do 100 isand=1,ntex
+        x = 100. * (isand-1.)/(ntex-1)      ! percent sand
+        do 102 iclay=1,ntex
+         z = 100. * (iclay-1.)/(ntex-1)     ! percent clay
+         y = 100. - x - z                   ! percent silt (not used)
+ 
+         hydval(isand,iclay,1) = 2.91  +.159  * z  ! B exponent
+         hydval(isand,iclay,2) = 1.88  -.0131 * x  ! sat.matric pot.(cm)
+         hydval(isand,iclay,3) = 48.9  -.126  * x  ! porosity (%)
+         hydval(isand,iclay,4) = -.884 +.0153 * x  ! sat.hyd.cond.("/hr)
+ 
+c        Change saturated matric potential from log(cm) to m:
+         hydval(isand,iclay,2) = .01 * (10.**hydval(isand,iclay,2))
+ 
+c        Change porosity from percent to fraction (both vol/vol)
+         hydval(isand,iclay,3) = .01 * hydval(isand,iclay,3)
+ 
+c        Change sat. hyd. conductivity from log(inches/hour) to m/s:
+         hydval(isand,iclay,4) =(10.**hydval(isand,iclay,4))*.0254/3600.
+ 
+  102   continue
+  100 continue
+ 
+c        Diagnostic output
+c
+c     do 800 ihyd=1,nhyd
+c       write (*,802) chyd(ihyd), ((isand-1.)/(ntex-1), isand=1,ntex,5)
+c       do 810 iclay = ntex,1,-5
+c         if (ihyd.le.3) then
+c           write(*,812) (iclay-1.)/(ntex-1),
+c    *                (hydval(isand,iclay,ihyd), isand=1,ntex-iclay+1,5)
+c         else
+c           write(*,814) (iclay-1.)/(ntex-1),
+c    *                (hydval(isand,iclay,ihyd), isand=1,ntex-iclay+1,5)
+c         endif
+c 810   continue
+c 800 continue
+c
+c 802 format(//6('-')/a/6('-')/16x,'sand'/'  clay',4x,11f10.2)
+c 812 format(f6.2,4x,11f10.3)
+c 814 format(f6.2,4x,11f10.7)
+ 
+      return
+      end

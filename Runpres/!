@@ -1,0 +1,72 @@
+set exp = pres
+set EXP = `echo $exp | tr "[a-z]" "[A-Z]"`
+echo pres
+set host = `hostname`
+hostname
+echo host = lionxg.rcc.psu.edu
+host = lionxg.rcc.psu.edu
+set RUN = /gpfs/home/rfr5151/Genesis.3.0/Runpres
+cd /gpfs/home/rfr5151/Genesis.3.0/Runpres
+@ year_base = 2000
+@ year_last = 2050
+if ( ! -e /gpfs/home/rfr5151/Genesis.3.0/Runpres/year_file_pres ) then
+@ year = `cat $RUN/year_file_$exp`
+cat /gpfs/home/rfr5151/Genesis.3.0/Runpres/year_file_pres
+endif
+while ( 2001 < = 2050 )
+/gpfs/home/rfr5151/Genesis.3.0/Runpres/debpres 2000 2001
+set debug = 0
+set exp = pres
+set EXP = `echo $exp | tr "[a-z]" "[A-Z]"`
+tr [a-z] [A-Z]
+echo pres
+set vegtype = 0
+set oceantype = 1
+set resa = T31
+set ress = 2X2
+set pshell = 
+set nonomatch
+set host = `hostname`
+hostname
+set hostsys = linux
+set STOREXE = /gpfs/home/rfr5151/Genesis.3.0/Exec
+set genexe = genexe_T31_2X2
+set STOREDAT = /gpfs/home/rfr5151/work/Datafiles/V2
+set STOREDATM = /gpfs/home/rfr5151/work/Datafiles/V2
+set STOREDATI = /gpfs/home/rfr5151/work/Datafiles/Isot
+set EVEIN = /gpfs/home/rfr5151/Genesis.3.0/leaff
+set RUN = /gpfs/home/rfr5151/Genesis.3.0/Runpres
+cd /gpfs/home/rfr5151/Genesis.3.0/Runpres
+if ( 2000 !=  && 2001 !=  ) then
+@ year_base = 2000
+@ year = 2001
+if ( 2001 == 2000 ) then
+set nsrest = 1
+endif
+else
+@ yearlab = ( 2001 - 2000 ) + 1
+if ( 2 < 10 ) then
+set yearlab = 002
+else if ( 002 < 100 ) then
+if ( 0 == 2 ) then
+cat
+rm -f .assigngen fort.6 fort.50 fort.52 fort.53 fort.54 fort.55 .jagen
+touch fort.6
+sed -e s/^E/\ /g -e s/;.*//g interm
+mv interma interm
+echo ==============
+echo Namelist Input
+echo ==============\n
+cat interm
+echo \n=====================
+echo End of Namelist Input
+echo =====================\n
+unlimit
+setenv OMP_NUM_THREADS 4
+setenv OMP_DYNAMIC FALSE
+setenv KMP_STACKSIZE 50m
+Killed
+if ( 137 != 0 ) exit ( 137 )
+exit ( 137 )
+if ( 137 != 0 ) exit ( 137 )
+exit ( 137 )
